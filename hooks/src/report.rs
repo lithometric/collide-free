@@ -20,7 +20,7 @@ use crate::http;
 use crate::shell;
 use crate::transcript;
 
-pub const HOOK_VERSION: u32 = 48; // must match blocks.HOOK_ARTIFACT_VERSION
+pub const HOOK_VERSION: u32 = 49; // must match blocks.HOOK_ARTIFACT_VERSION
 pub const TOTAL_BUDGET: Duration = Duration::from_millis(500);
 const MAX_FILE_BYTES: u64 = 512 * 1024;
 
