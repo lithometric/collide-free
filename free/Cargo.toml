@@ -1,0 +1,53 @@
+[package]
+name = "collide-free"
+version = "0.1.0"
+edition = "2021"
+description = "Collide's server in Rust. Phase 1: the hot HTTP endpoints, sharing the live database with the Python server."
+license = "MIT"
+
+[[bin]]
+name = "collide"
+path = "src/main.rs"
+
+[features]
+default = ["cli"]
+# the free version's one program, `collide`: this engine's local server (run
+# as `collide local`) with the hooks linked in
+cli = ["dep:collide-hooks"]
+# Collide's cloud (accounts, billing, teams across machines, embeddings) is
+# not in this repository; src/free/ answers in its place
+cloud = []
+
+[dependencies]
+axum = { version = "0.7", features = ["json", "ws"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "time"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
+sha2 = "0.10"
+sha1 = "0.10"
+regex = "1"
+# UTC month keys for the usage counter; no other date handling needed
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+rusqlite = { version = "0.32", features = ["bundled", "session"] }
+# the parse engine and graph resolution, without the Python extension feature
+collide-core = { path = "../core", default-features = false }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+rmcp = { version = "3.4.0", default-features = false, features = ["server", "transport-streamable-http-server", "elicitation"] }
+http = "1.5.0"
+# PKCE's S256 challenge and DCR/token responses are base64url; query-string
+# round-tripping for /authorize and /token needs form_urlencoded, which this
+# also brings in
+base64 = "0.22"
+url = "2"
+ureq = { version = "2.12.1", default-features = false, features = ["tls", "gzip"] }
+jsonwebtoken = { version = "11.1.0", features = ["rust_crypto"] }
+tower-http = { version = "0.7.1", features = ["catch-panic", "cors"] }
+collide-hooks = { path = "../hooks", optional = true }
+# the graph snapshot resolves each file's imports on its own core (graphview.rs)
+rayon = "1.12"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

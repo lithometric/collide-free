@@ -1,0 +1,14 @@
+{
+  "name": "collide",
+  "owner": {
+    "name": "Lithometric",
+    "url": "https://collidemcp.com"
+  },
+  "plugins": [
+    {
+      "name": "collide",
+      "source": "./",
+      "description": "Several Claude Code agents on one repo, without the collisions."
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+#!/bin/sh
+# Install Collide's native hook binary into .collide/bin/collide-hook.
+#
+# Optional. Without it the committed Python hooks run instead and behave
+# identically — this is purely a startup-time win (about 2ms against 34ms,
+# on something that fires for every tool call an agent makes).
+set -eu
+
+BASE="${COLLIDE_SERVER_URL:-__BASE__}"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+DEST="$ROOT/.collide/bin"
+
+EXT=""
+case "$(uname -s)" in
+  Darwin) OS="apple-darwin" ;;
+  Linux)  OS="unknown-linux-gnu" ;;
+  MINGW*|MSYS*|CYGWIN*) OS="pc-windows-msvc"; EXT=".exe" ;;
+  *) echo "collide: no native build for $(uname -s); the Python hooks stay in use." >&2; exit 0 ;;
+esac
+case "$(uname -m)" in
+  arm64|aarch64) ARCH="aarch64" ;;
+  x86_64|amd64)  ARCH="x86_64" ;;
+  *) echo "collide: no native build for $(uname -m); the Python hooks stay in use." >&2; exit 0 ;;
+esac
+TARGET="$ARCH-$OS"
+
+# the committed pin wins: the exact build a reviewer saw in .collide/hooks.lock,
+# by version, checked against the digest in the repo's own history
+LOCK="$ROOT/.collide/hooks.lock"
+if [ -f "$LOCK" ]; then
+  VERSION="$(sed -n 's/^version //p' "$LOCK" | head -1)"
+  WANT="$(awk -v t="$TARGET" '$1==t {print $2}' "$LOCK" | head -1)"
+  if [ -z "$VERSION" ] || [ -z "$WANT" ]; then
+    echo "collide: .collide/hooks.lock pins no $TARGET build; the Python hooks stay in use." >&2; exit 0
+  fi
+  URL="$BASE/artifacts/hooks/v/$VERSION/$TARGET"
+else
+  echo "collide: no .collide/hooks.lock in this repo — trusting the server's digest for this one manual install." >&2
+  INDEX="$(curl -fsSL "$BASE/artifacts/hooks" 2>/dev/null || true)"
+  case "$INDEX" in
+    *"$TARGET"*) ;;
+    *) echo "collide: this server has no $TARGET build yet; the Python hooks stay in use." >&2; exit 0 ;;
+  esac
+  WANT="$(printf '%s' "$INDEX" | tr '{' '\n' | grep "$TARGET" | grep -o 'sha256"[^"]*"[0-9a-f]*' | grep -o '[0-9a-f]\{64\}' | head -1)"
+  URL="$BASE/artifacts/hooks/$TARGET"
+fi
+
+TMP="$(mktemp)"
+trap 'rm -f "$TMP"' EXIT
+curl -fsSL "$URL" -o "$TMP"
+
+if command -v sha256sum >/dev/null 2>&1; then GOT="$(sha256sum "$TMP" | cut -d' ' -f1)"
+elif command -v shasum >/dev/null 2>&1; then GOT="$(shasum -a 256 "$TMP" | cut -d' ' -f1)"
+else GOT=""; fi
+if [ -z "$WANT" ] || [ -z "$GOT" ] || [ "$GOT" != "$WANT" ]; then
+  echo "collide: the download does not match the pinned digest, refusing to install." >&2
+  exit 1
+fi
+
+mkdir -p "$DEST"
+chmod +x "$TMP"
+mv "$TMP" "$DEST/collide-hook$EXT"
+trap - EXIT
+echo "collide: installed $("$DEST/collide-hook$EXT" --version) to $DEST/collide-hook$EXT"
+echo "collide: add .collide/bin/ to .gitignore — it is a per-platform binary."

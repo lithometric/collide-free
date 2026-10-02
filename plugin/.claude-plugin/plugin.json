@@ -1,0 +1,14 @@
+{
+  "name": "collide",
+  "version": "0.1.0",
+  "description": "Several Claude Code agents on one repo, without the collisions: each agent is briefed on the code its prompt is about, told the moment a teammate changes what it depends on, and has its pushes rebased, tested and landed in one step.",
+  "author": {
+    "name": "Lithometric",
+    "url": "https://collidemcp.com"
+  },
+  "homepage": "https://collidemcp.com",
+  "repository": "https://github.com/lithometric/collide-plugin",
+  "license": "MIT",
+  "keywords": ["multi-agent", "coordination", "claude-code", "hooks", "tokens"],
+  "hooks": "./hooks/hooks.json"
+}

@@ -1,0 +1,1534 @@
+{
+ "report_hooks": {
+  "PostToolUse": [
+   {
+    "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+    "hooks": [
+     {
+      "type": "command",
+      "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+      "timeout": 5
+     }
+    ]
+   },
+   {
+    "matcher": "Read|Grep|Glob|Bash",
+    "hooks": [
+     {
+      "type": "command",
+      "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+      "timeout": 5
+     }
+    ]
+   }
+  ],
+  "PostToolUseFailure": [
+   {
+    "matcher": "Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob|Bash",
+    "hooks": [
+     {
+      "type": "command",
+      "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+      "timeout": 5
+     }
+    ]
+   }
+  ],
+  "Stop": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+      "timeout": 5
+     }
+    ]
+   }
+  ],
+  "SessionEnd": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+      "timeout": 5
+     }
+    ]
+   }
+  ],
+  "PostToolBatch": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+      "timeout": 10
+     }
+    ]
+   }
+  ],
+  "UserPromptSubmit": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+      "timeout": 10
+     }
+    ]
+   }
+  ],
+  "ConfigChange": [
+   {
+    "matcher": "project_settings|local_settings|user_settings",
+    "hooks": [
+     {
+      "type": "command",
+      "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+      "timeout": 5
+     }
+    ]
+   }
+  ]
+ },
+ "hooks_json_enforce": {
+  "hooks": {
+   "PostToolUse": [
+    {
+     "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    },
+    {
+     "matcher": "Read|Grep|Glob|Bash",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "PostToolUseFailure": [
+    {
+     "matcher": "Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob|Bash",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "Stop": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "SessionEnd": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "PostToolBatch": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 10
+      }
+     ]
+    }
+   ],
+   "UserPromptSubmit": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 10
+      }
+     ]
+    }
+   ],
+   "ConfigChange": [
+    {
+     "matcher": "project_settings|local_settings|user_settings",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "SessionStart": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "i=$(cat 2>/dev/null); b=$(git rev-parse HEAD 2>/dev/null); GIT_TERMINAL_PROMPT=0 git fetch origin --quiet 2>/dev/null; if [ \"$COLLIDE_AUTO_PULL\" = \"1\" ] || grep -qs '\"auto_pull\": *true' \"${CLAUDE_PROJECT_DIR:-.}/.collide/config.json\"; then GIT_TERMINAL_PROMPT=0 git pull --ff-only --quiet 2>/dev/null; a=$(git rev-parse HEAD 2>/dev/null); if [ -n \"$b\" ] && [ -n \"$a\" ] && [ \"$a\" != \"$b\" ]; then echo \"Collide: pulled $(git rev-list --count \"$b\"..\"$a\" 2>/dev/null) new commit(s) from origin at session start — teammates' work just landed. Re-read any file you plan to edit and check get_briefing for what changed.\"; fi; else n=$(git rev-list --count HEAD..@{u} 2>/dev/null); if [ -n \"$n\" ] && [ \"$n\" -gt 0 ] 2>/dev/null; then echo \"Collide: origin is $n commit(s) ahead of this checkout. Pull when it suits you (git pull --ff-only) and check get_briefing for what changed.\"; fi; fi; b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; exit 0; fi; d=\"${CLAUDE_PROJECT_DIR:-.}\"; f=\"$d/.collide/report_hook.py\"; l=\"$d/.collide/hooks.lock\"; if [ -f \"$l\" ] && ! find \"$d/.collide/bin/.native-tried\" -mmin -10 2>/dev/null | grep -q . && command -v curl >/dev/null 2>&1; then mkdir -p \"$d/.collide/bin\" 2>/dev/null; : > \"$d/.collide/bin/.native-tried\" 2>/dev/null; grep -qs \"^\\.collide/bin\" \"$d/.gitignore\" || printf \"%s\\n\" \"# per-platform native hook, installed by Collide\" \".collide/bin/\" >> \"$d/.gitignore\" 2>/dev/null; s=$(sed -n 's/.*\"server_url\": *\"\\([^\"]*\\)\".*/\\1/p' \"$d/.collide/config.json\" 2>/dev/null | head -1); e=\"\"; case \"$(uname -s)\" in Darwin) o=apple-darwin;; Linux) o=unknown-linux-gnu;; MINGW*|MSYS*|CYGWIN*) o=pc-windows-msvc; e=.exe;; *) o=\"\";; esac; case \"$(uname -m)\" in arm64|aarch64) m=aarch64;; x86_64|amd64) m=x86_64;; *) m=\"\";; esac; v=$(sed -n 's/^version //p' \"$l\" | head -1); w=$(awk -v t=\"$m-$o\" '$1==t {print $2}' \"$l\" | head -1); if [ -n \"$s\" ] && [ -n \"$o\" ] && [ -n \"$m\" ] && [ -n \"$v\" ] && [ -n \"$w\" ]; then t=\"$d/.collide/bin/.download\"; if curl -fsSL --max-time 60 \"$s/artifacts/hooks/v/$v/$m-$o\" -o \"$t\" 2>/dev/null; then g=$( (shasum -a 256 \"$t\" 2>/dev/null || sha256sum \"$t\" 2>/dev/null) | cut -d\" \" -f1); if [ -n \"$g\" ] && [ \"$g\" = \"$w\" ]; then chmod +x \"$t\" && mv \"$t\" \"$d/.collide/bin/collide-hook$e\"; fi; fi; rm -f \"$t\" 2>/dev/null; b=\"$d/.collide/bin/collide-hook\"; if [ -x \"$b\" ] || [ -x \"$b.exe\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; printf \"%s\" \"$i\" | \"$b\" report 2>/dev/null || true; exit 0; fi; fi; fi; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -z \"$p\" ]; then echo \"Collide: the native hook could not be downloaded here (no curl, or no build for this platform) and no working Python interpreter is on PATH for the fallback, so the hooks cannot run and NOTHING you edit is being reported. Fix this before any other work, without asking. On Windows the usual cause is that python3 resolves to the Microsoft Store App Execution Alias stub (AppData/Local/Microsoft/WindowsApps/python3), which prints 'Python was not found' and exits 49 rather than running anything: install a real interpreter with winget install -e --id Python.3.12, and turn the alias off under Settings > Apps > Advanced app settings > App execution aliases. Hooks also run under Git Bash: winget install -e --id Git.Git. Restart the session afterwards, then tell the human.\"; elif [ ! -f \"$f\" ]; then echo \"Collide: .collide/report_hook.py is missing from this repo, so no edit is being reported. Before any other work call the collide MCP tool setup and commit the repo files it returns, then tell the human.\"; else \"$p\" \"$f\" --check-credentials \"$p\" 2>/dev/null || true; fi",
+       "timeout": 15
+      },
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 30
+      }
+     ]
+    }
+   ],
+   "PreToolUse": [
+    {
+     "matcher": "Edit|Write|MultiEdit|Bash",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then exec \"$b\" gate; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/gate_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\"; else collide-gate-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ]
+  },
+  "server_url": "https://x.test"
+ },
+ "hooks_json_advisory": {
+  "hooks": {
+   "PostToolUse": [
+    {
+     "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    },
+    {
+     "matcher": "Read|Grep|Glob|Bash",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "PostToolUseFailure": [
+    {
+     "matcher": "Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob|Bash",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "Stop": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "SessionEnd": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "PostToolBatch": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 10
+      }
+     ]
+    }
+   ],
+   "UserPromptSubmit": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 10
+      }
+     ]
+    }
+   ],
+   "ConfigChange": [
+    {
+     "matcher": "project_settings|local_settings|user_settings",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "SessionStart": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "i=$(cat 2>/dev/null); b=$(git rev-parse HEAD 2>/dev/null); GIT_TERMINAL_PROMPT=0 git fetch origin --quiet 2>/dev/null; if [ \"$COLLIDE_AUTO_PULL\" = \"1\" ] || grep -qs '\"auto_pull\": *true' \"${CLAUDE_PROJECT_DIR:-.}/.collide/config.json\"; then GIT_TERMINAL_PROMPT=0 git pull --ff-only --quiet 2>/dev/null; a=$(git rev-parse HEAD 2>/dev/null); if [ -n \"$b\" ] && [ -n \"$a\" ] && [ \"$a\" != \"$b\" ]; then echo \"Collide: pulled $(git rev-list --count \"$b\"..\"$a\" 2>/dev/null) new commit(s) from origin at session start — teammates' work just landed. Re-read any file you plan to edit and check get_briefing for what changed.\"; fi; else n=$(git rev-list --count HEAD..@{u} 2>/dev/null); if [ -n \"$n\" ] && [ \"$n\" -gt 0 ] 2>/dev/null; then echo \"Collide: origin is $n commit(s) ahead of this checkout. Pull when it suits you (git pull --ff-only) and check get_briefing for what changed.\"; fi; fi; b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; exit 0; fi; d=\"${CLAUDE_PROJECT_DIR:-.}\"; f=\"$d/.collide/report_hook.py\"; l=\"$d/.collide/hooks.lock\"; if [ -f \"$l\" ] && ! find \"$d/.collide/bin/.native-tried\" -mmin -10 2>/dev/null | grep -q . && command -v curl >/dev/null 2>&1; then mkdir -p \"$d/.collide/bin\" 2>/dev/null; : > \"$d/.collide/bin/.native-tried\" 2>/dev/null; grep -qs \"^\\.collide/bin\" \"$d/.gitignore\" || printf \"%s\\n\" \"# per-platform native hook, installed by Collide\" \".collide/bin/\" >> \"$d/.gitignore\" 2>/dev/null; s=$(sed -n 's/.*\"server_url\": *\"\\([^\"]*\\)\".*/\\1/p' \"$d/.collide/config.json\" 2>/dev/null | head -1); e=\"\"; case \"$(uname -s)\" in Darwin) o=apple-darwin;; Linux) o=unknown-linux-gnu;; MINGW*|MSYS*|CYGWIN*) o=pc-windows-msvc; e=.exe;; *) o=\"\";; esac; case \"$(uname -m)\" in arm64|aarch64) m=aarch64;; x86_64|amd64) m=x86_64;; *) m=\"\";; esac; v=$(sed -n 's/^version //p' \"$l\" | head -1); w=$(awk -v t=\"$m-$o\" '$1==t {print $2}' \"$l\" | head -1); if [ -n \"$s\" ] && [ -n \"$o\" ] && [ -n \"$m\" ] && [ -n \"$v\" ] && [ -n \"$w\" ]; then t=\"$d/.collide/bin/.download\"; if curl -fsSL --max-time 60 \"$s/artifacts/hooks/v/$v/$m-$o\" -o \"$t\" 2>/dev/null; then g=$( (shasum -a 256 \"$t\" 2>/dev/null || sha256sum \"$t\" 2>/dev/null) | cut -d\" \" -f1); if [ -n \"$g\" ] && [ \"$g\" = \"$w\" ]; then chmod +x \"$t\" && mv \"$t\" \"$d/.collide/bin/collide-hook$e\"; fi; fi; rm -f \"$t\" 2>/dev/null; b=\"$d/.collide/bin/collide-hook\"; if [ -x \"$b\" ] || [ -x \"$b.exe\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; printf \"%s\" \"$i\" | \"$b\" report 2>/dev/null || true; exit 0; fi; fi; fi; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -z \"$p\" ]; then echo \"Collide: the native hook could not be downloaded here (no curl, or no build for this platform) and no working Python interpreter is on PATH for the fallback, so the hooks cannot run and NOTHING you edit is being reported. Fix this before any other work, without asking. On Windows the usual cause is that python3 resolves to the Microsoft Store App Execution Alias stub (AppData/Local/Microsoft/WindowsApps/python3), which prints 'Python was not found' and exits 49 rather than running anything: install a real interpreter with winget install -e --id Python.3.12, and turn the alias off under Settings > Apps > Advanced app settings > App execution aliases. Hooks also run under Git Bash: winget install -e --id Git.Git. Restart the session afterwards, then tell the human.\"; elif [ ! -f \"$f\" ]; then echo \"Collide: .collide/report_hook.py is missing from this repo, so no edit is being reported. Before any other work call the collide MCP tool setup and commit the repo files it returns, then tell the human.\"; else \"$p\" \"$f\" --check-credentials \"$p\" 2>/dev/null || true; fi",
+       "timeout": 15
+      },
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 30
+      }
+     ]
+    }
+   ]
+  },
+  "server_url": "https://x.test"
+ },
+ "hooks_json_noserver": {
+  "hooks": {
+   "PostToolUse": [
+    {
+     "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    },
+    {
+     "matcher": "Read|Grep|Glob|Bash",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "PostToolUseFailure": [
+    {
+     "matcher": "Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob|Bash",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "Stop": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "SessionEnd": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "PostToolBatch": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 10
+      }
+     ]
+    }
+   ],
+   "UserPromptSubmit": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 10
+      }
+     ]
+    }
+   ],
+   "ConfigChange": [
+    {
+     "matcher": "project_settings|local_settings|user_settings",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "SessionStart": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "i=$(cat 2>/dev/null); b=$(git rev-parse HEAD 2>/dev/null); GIT_TERMINAL_PROMPT=0 git fetch origin --quiet 2>/dev/null; if [ \"$COLLIDE_AUTO_PULL\" = \"1\" ] || grep -qs '\"auto_pull\": *true' \"${CLAUDE_PROJECT_DIR:-.}/.collide/config.json\"; then GIT_TERMINAL_PROMPT=0 git pull --ff-only --quiet 2>/dev/null; a=$(git rev-parse HEAD 2>/dev/null); if [ -n \"$b\" ] && [ -n \"$a\" ] && [ \"$a\" != \"$b\" ]; then echo \"Collide: pulled $(git rev-list --count \"$b\"..\"$a\" 2>/dev/null) new commit(s) from origin at session start — teammates' work just landed. Re-read any file you plan to edit and check get_briefing for what changed.\"; fi; else n=$(git rev-list --count HEAD..@{u} 2>/dev/null); if [ -n \"$n\" ] && [ \"$n\" -gt 0 ] 2>/dev/null; then echo \"Collide: origin is $n commit(s) ahead of this checkout. Pull when it suits you (git pull --ff-only) and check get_briefing for what changed.\"; fi; fi; b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; exit 0; fi; d=\"${CLAUDE_PROJECT_DIR:-.}\"; f=\"$d/.collide/report_hook.py\"; l=\"$d/.collide/hooks.lock\"; if [ -f \"$l\" ] && ! find \"$d/.collide/bin/.native-tried\" -mmin -10 2>/dev/null | grep -q . && command -v curl >/dev/null 2>&1; then mkdir -p \"$d/.collide/bin\" 2>/dev/null; : > \"$d/.collide/bin/.native-tried\" 2>/dev/null; grep -qs \"^\\.collide/bin\" \"$d/.gitignore\" || printf \"%s\\n\" \"# per-platform native hook, installed by Collide\" \".collide/bin/\" >> \"$d/.gitignore\" 2>/dev/null; s=$(sed -n 's/.*\"server_url\": *\"\\([^\"]*\\)\".*/\\1/p' \"$d/.collide/config.json\" 2>/dev/null | head -1); e=\"\"; case \"$(uname -s)\" in Darwin) o=apple-darwin;; Linux) o=unknown-linux-gnu;; MINGW*|MSYS*|CYGWIN*) o=pc-windows-msvc; e=.exe;; *) o=\"\";; esac; case \"$(uname -m)\" in arm64|aarch64) m=aarch64;; x86_64|amd64) m=x86_64;; *) m=\"\";; esac; v=$(sed -n 's/^version //p' \"$l\" | head -1); w=$(awk -v t=\"$m-$o\" '$1==t {print $2}' \"$l\" | head -1); if [ -n \"$s\" ] && [ -n \"$o\" ] && [ -n \"$m\" ] && [ -n \"$v\" ] && [ -n \"$w\" ]; then t=\"$d/.collide/bin/.download\"; if curl -fsSL --max-time 60 \"$s/artifacts/hooks/v/$v/$m-$o\" -o \"$t\" 2>/dev/null; then g=$( (shasum -a 256 \"$t\" 2>/dev/null || sha256sum \"$t\" 2>/dev/null) | cut -d\" \" -f1); if [ -n \"$g\" ] && [ \"$g\" = \"$w\" ]; then chmod +x \"$t\" && mv \"$t\" \"$d/.collide/bin/collide-hook$e\"; fi; fi; rm -f \"$t\" 2>/dev/null; b=\"$d/.collide/bin/collide-hook\"; if [ -x \"$b\" ] || [ -x \"$b.exe\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; printf \"%s\" \"$i\" | \"$b\" report 2>/dev/null || true; exit 0; fi; fi; fi; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -z \"$p\" ]; then echo \"Collide: the native hook could not be downloaded here (no curl, or no build for this platform) and no working Python interpreter is on PATH for the fallback, so the hooks cannot run and NOTHING you edit is being reported. Fix this before any other work, without asking. On Windows the usual cause is that python3 resolves to the Microsoft Store App Execution Alias stub (AppData/Local/Microsoft/WindowsApps/python3), which prints 'Python was not found' and exits 49 rather than running anything: install a real interpreter with winget install -e --id Python.3.12, and turn the alias off under Settings > Apps > Advanced app settings > App execution aliases. Hooks also run under Git Bash: winget install -e --id Git.Git. Restart the session afterwards, then tell the human.\"; elif [ ! -f \"$f\" ]; then echo \"Collide: .collide/report_hook.py is missing from this repo, so no edit is being reported. Before any other work call the collide MCP tool setup and commit the repo files it returns, then tell the human.\"; else \"$p\" \"$f\" --check-credentials \"$p\" 2>/dev/null || true; fi",
+       "timeout": 15
+      },
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 30
+      }
+     ]
+    }
+   ],
+   "PreToolUse": [
+    {
+     "matcher": "Edit|Write|MultiEdit|Bash",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then exec \"$b\" gate; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/gate_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\"; else collide-gate-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ]
+  },
+  "server_url": ""
+ },
+ "codex_hooks_json_enforce": {
+  "hooks": {
+   "PostToolUse": [
+    {
+     "matcher": "^(apply_patch|Edit|Write|MultiEdit)$",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness codex 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness codex 2>/dev/null || true; else collide-report-hook --harness codex 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    },
+    {
+     "matcher": "^(Read|Grep|Glob|Bash|shell)$",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness codex 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness codex 2>/dev/null || true; else collide-report-hook --harness codex 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "SessionStart": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness codex 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness codex 2>/dev/null || true; else collide-report-hook --harness codex 2>/dev/null || true; fi",
+       "timeout": 30
+      }
+     ]
+    }
+   ],
+   "UserPromptSubmit": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness codex 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness codex 2>/dev/null || true; else collide-report-hook --harness codex 2>/dev/null || true; fi",
+       "timeout": 10
+      }
+     ]
+    }
+   ],
+   "SessionEnd": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness codex 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness codex 2>/dev/null || true; else collide-report-hook --harness codex 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "PreToolUse": [
+    {
+     "matcher": "^(apply_patch|Edit|Write|MultiEdit|shell)$",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then exec \"$b\" gate --harness codex; fi; f=\"$d/.collide/gate_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness codex; else collide-gate-hook --harness codex 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "codex_hooks_json_advisory": {
+  "hooks": {
+   "PostToolUse": [
+    {
+     "matcher": "^(apply_patch|Edit|Write|MultiEdit)$",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness codex 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness codex 2>/dev/null || true; else collide-report-hook --harness codex 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    },
+    {
+     "matcher": "^(Read|Grep|Glob|Bash|shell)$",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness codex 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness codex 2>/dev/null || true; else collide-report-hook --harness codex 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "SessionStart": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness codex 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness codex 2>/dev/null || true; else collide-report-hook --harness codex 2>/dev/null || true; fi",
+       "timeout": 30
+      }
+     ]
+    }
+   ],
+   "UserPromptSubmit": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness codex 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness codex 2>/dev/null || true; else collide-report-hook --harness codex 2>/dev/null || true; fi",
+       "timeout": 10
+      }
+     ]
+    }
+   ],
+   "SessionEnd": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness codex 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness codex 2>/dev/null || true; else collide-report-hook --harness codex 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "claude_settings_json_enforce": {
+  "permissions": {
+   "allow": [
+    "mcp__collide"
+   ]
+  },
+  "enabledMcpjsonServers": [
+   "collide"
+  ],
+  "hooks": {
+   "PostToolUse": [
+    {
+     "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    },
+    {
+     "matcher": "Read|Grep|Glob|Bash",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "PostToolUseFailure": [
+    {
+     "matcher": "Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob|Bash",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "Stop": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "SessionEnd": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "PostToolBatch": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 10
+      }
+     ]
+    }
+   ],
+   "UserPromptSubmit": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 10
+      }
+     ]
+    }
+   ],
+   "ConfigChange": [
+    {
+     "matcher": "project_settings|local_settings|user_settings",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "SessionStart": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "i=$(cat 2>/dev/null); b=$(git rev-parse HEAD 2>/dev/null); GIT_TERMINAL_PROMPT=0 git fetch origin --quiet 2>/dev/null; if [ \"$COLLIDE_AUTO_PULL\" = \"1\" ] || grep -qs '\"auto_pull\": *true' \"${CLAUDE_PROJECT_DIR:-.}/.collide/config.json\"; then GIT_TERMINAL_PROMPT=0 git pull --ff-only --quiet 2>/dev/null; a=$(git rev-parse HEAD 2>/dev/null); if [ -n \"$b\" ] && [ -n \"$a\" ] && [ \"$a\" != \"$b\" ]; then echo \"Collide: pulled $(git rev-list --count \"$b\"..\"$a\" 2>/dev/null) new commit(s) from origin at session start — teammates' work just landed. Re-read any file you plan to edit and check get_briefing for what changed.\"; fi; else n=$(git rev-list --count HEAD..@{u} 2>/dev/null); if [ -n \"$n\" ] && [ \"$n\" -gt 0 ] 2>/dev/null; then echo \"Collide: origin is $n commit(s) ahead of this checkout. Pull when it suits you (git pull --ff-only) and check get_briefing for what changed.\"; fi; fi; b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; exit 0; fi; d=\"${CLAUDE_PROJECT_DIR:-.}\"; f=\"$d/.collide/report_hook.py\"; l=\"$d/.collide/hooks.lock\"; if [ -f \"$l\" ] && ! find \"$d/.collide/bin/.native-tried\" -mmin -10 2>/dev/null | grep -q . && command -v curl >/dev/null 2>&1; then mkdir -p \"$d/.collide/bin\" 2>/dev/null; : > \"$d/.collide/bin/.native-tried\" 2>/dev/null; grep -qs \"^\\.collide/bin\" \"$d/.gitignore\" || printf \"%s\\n\" \"# per-platform native hook, installed by Collide\" \".collide/bin/\" >> \"$d/.gitignore\" 2>/dev/null; s=$(sed -n 's/.*\"server_url\": *\"\\([^\"]*\\)\".*/\\1/p' \"$d/.collide/config.json\" 2>/dev/null | head -1); e=\"\"; case \"$(uname -s)\" in Darwin) o=apple-darwin;; Linux) o=unknown-linux-gnu;; MINGW*|MSYS*|CYGWIN*) o=pc-windows-msvc; e=.exe;; *) o=\"\";; esac; case \"$(uname -m)\" in arm64|aarch64) m=aarch64;; x86_64|amd64) m=x86_64;; *) m=\"\";; esac; v=$(sed -n 's/^version //p' \"$l\" | head -1); w=$(awk -v t=\"$m-$o\" '$1==t {print $2}' \"$l\" | head -1); if [ -n \"$s\" ] && [ -n \"$o\" ] && [ -n \"$m\" ] && [ -n \"$v\" ] && [ -n \"$w\" ]; then t=\"$d/.collide/bin/.download\"; if curl -fsSL --max-time 60 \"$s/artifacts/hooks/v/$v/$m-$o\" -o \"$t\" 2>/dev/null; then g=$( (shasum -a 256 \"$t\" 2>/dev/null || sha256sum \"$t\" 2>/dev/null) | cut -d\" \" -f1); if [ -n \"$g\" ] && [ \"$g\" = \"$w\" ]; then chmod +x \"$t\" && mv \"$t\" \"$d/.collide/bin/collide-hook$e\"; fi; fi; rm -f \"$t\" 2>/dev/null; b=\"$d/.collide/bin/collide-hook\"; if [ -x \"$b\" ] || [ -x \"$b.exe\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; printf \"%s\" \"$i\" | \"$b\" report 2>/dev/null || true; exit 0; fi; fi; fi; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -z \"$p\" ]; then echo \"Collide: the native hook could not be downloaded here (no curl, or no build for this platform) and no working Python interpreter is on PATH for the fallback, so the hooks cannot run and NOTHING you edit is being reported. Fix this before any other work, without asking. On Windows the usual cause is that python3 resolves to the Microsoft Store App Execution Alias stub (AppData/Local/Microsoft/WindowsApps/python3), which prints 'Python was not found' and exits 49 rather than running anything: install a real interpreter with winget install -e --id Python.3.12, and turn the alias off under Settings > Apps > Advanced app settings > App execution aliases. Hooks also run under Git Bash: winget install -e --id Git.Git. Restart the session afterwards, then tell the human.\"; elif [ ! -f \"$f\" ]; then echo \"Collide: .collide/report_hook.py is missing from this repo, so no edit is being reported. Before any other work call the collide MCP tool setup and commit the repo files it returns, then tell the human.\"; else \"$p\" \"$f\" --check-credentials \"$p\" 2>/dev/null || true; fi",
+       "timeout": 15
+      },
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 30
+      }
+     ]
+    }
+   ],
+   "PreToolUse": [
+    {
+     "matcher": "Edit|Write|MultiEdit|Bash",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then exec \"$b\" gate; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/gate_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\"; else collide-gate-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "claude_settings_json_advisory": {
+  "permissions": {
+   "allow": [
+    "mcp__collide"
+   ]
+  },
+  "enabledMcpjsonServers": [
+   "collide"
+  ],
+  "hooks": {
+   "PostToolUse": [
+    {
+     "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    },
+    {
+     "matcher": "Read|Grep|Glob|Bash",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "PostToolUseFailure": [
+    {
+     "matcher": "Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob|Bash",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "Stop": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "SessionEnd": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "PostToolBatch": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 10
+      }
+     ]
+    }
+   ],
+   "UserPromptSubmit": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 10
+      }
+     ]
+    }
+   ],
+   "ConfigChange": [
+    {
+     "matcher": "project_settings|local_settings|user_settings",
+     "hooks": [
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 5
+      }
+     ]
+    }
+   ],
+   "SessionStart": [
+    {
+     "hooks": [
+      {
+       "type": "command",
+       "command": "i=$(cat 2>/dev/null); b=$(git rev-parse HEAD 2>/dev/null); GIT_TERMINAL_PROMPT=0 git fetch origin --quiet 2>/dev/null; if [ \"$COLLIDE_AUTO_PULL\" = \"1\" ] || grep -qs '\"auto_pull\": *true' \"${CLAUDE_PROJECT_DIR:-.}/.collide/config.json\"; then GIT_TERMINAL_PROMPT=0 git pull --ff-only --quiet 2>/dev/null; a=$(git rev-parse HEAD 2>/dev/null); if [ -n \"$b\" ] && [ -n \"$a\" ] && [ \"$a\" != \"$b\" ]; then echo \"Collide: pulled $(git rev-list --count \"$b\"..\"$a\" 2>/dev/null) new commit(s) from origin at session start — teammates' work just landed. Re-read any file you plan to edit and check get_briefing for what changed.\"; fi; else n=$(git rev-list --count HEAD..@{u} 2>/dev/null); if [ -n \"$n\" ] && [ \"$n\" -gt 0 ] 2>/dev/null; then echo \"Collide: origin is $n commit(s) ahead of this checkout. Pull when it suits you (git pull --ff-only) and check get_briefing for what changed.\"; fi; fi; b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; exit 0; fi; d=\"${CLAUDE_PROJECT_DIR:-.}\"; f=\"$d/.collide/report_hook.py\"; l=\"$d/.collide/hooks.lock\"; if [ -f \"$l\" ] && ! find \"$d/.collide/bin/.native-tried\" -mmin -10 2>/dev/null | grep -q . && command -v curl >/dev/null 2>&1; then mkdir -p \"$d/.collide/bin\" 2>/dev/null; : > \"$d/.collide/bin/.native-tried\" 2>/dev/null; grep -qs \"^\\.collide/bin\" \"$d/.gitignore\" || printf \"%s\\n\" \"# per-platform native hook, installed by Collide\" \".collide/bin/\" >> \"$d/.gitignore\" 2>/dev/null; s=$(sed -n 's/.*\"server_url\": *\"\\([^\"]*\\)\".*/\\1/p' \"$d/.collide/config.json\" 2>/dev/null | head -1); e=\"\"; case \"$(uname -s)\" in Darwin) o=apple-darwin;; Linux) o=unknown-linux-gnu;; MINGW*|MSYS*|CYGWIN*) o=pc-windows-msvc; e=.exe;; *) o=\"\";; esac; case \"$(uname -m)\" in arm64|aarch64) m=aarch64;; x86_64|amd64) m=x86_64;; *) m=\"\";; esac; v=$(sed -n 's/^version //p' \"$l\" | head -1); w=$(awk -v t=\"$m-$o\" '$1==t {print $2}' \"$l\" | head -1); if [ -n \"$s\" ] && [ -n \"$o\" ] && [ -n \"$m\" ] && [ -n \"$v\" ] && [ -n \"$w\" ]; then t=\"$d/.collide/bin/.download\"; if curl -fsSL --max-time 60 \"$s/artifacts/hooks/v/$v/$m-$o\" -o \"$t\" 2>/dev/null; then g=$( (shasum -a 256 \"$t\" 2>/dev/null || sha256sum \"$t\" 2>/dev/null) | cut -d\" \" -f1); if [ -n \"$g\" ] && [ \"$g\" = \"$w\" ]; then chmod +x \"$t\" && mv \"$t\" \"$d/.collide/bin/collide-hook$e\"; fi; fi; rm -f \"$t\" 2>/dev/null; b=\"$d/.collide/bin/collide-hook\"; if [ -x \"$b\" ] || [ -x \"$b.exe\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; printf \"%s\" \"$i\" | \"$b\" report 2>/dev/null || true; exit 0; fi; fi; fi; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -z \"$p\" ]; then echo \"Collide: the native hook could not be downloaded here (no curl, or no build for this platform) and no working Python interpreter is on PATH for the fallback, so the hooks cannot run and NOTHING you edit is being reported. Fix this before any other work, without asking. On Windows the usual cause is that python3 resolves to the Microsoft Store App Execution Alias stub (AppData/Local/Microsoft/WindowsApps/python3), which prints 'Python was not found' and exits 49 rather than running anything: install a real interpreter with winget install -e --id Python.3.12, and turn the alias off under Settings > Apps > Advanced app settings > App execution aliases. Hooks also run under Git Bash: winget install -e --id Git.Git. Restart the session afterwards, then tell the human.\"; elif [ ! -f \"$f\" ]; then echo \"Collide: .collide/report_hook.py is missing from this repo, so no edit is being reported. Before any other work call the collide MCP tool setup and commit the repo files it returns, then tell the human.\"; else \"$p\" \"$f\" --check-credentials \"$p\" 2>/dev/null || true; fi",
+       "timeout": 15
+      },
+      {
+       "type": "command",
+       "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+       "timeout": 30
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "mcp_json": {
+  "mcpServers": {
+   "collide": {
+    "type": "http",
+    "url": "https://x.test/mcp"
+   }
+  }
+ },
+ "mcp_json_mcpurl": {
+  "mcpServers": {
+   "collide": {
+    "type": "http",
+    "url": "https://mcp.x.test/mcp"
+   }
+  }
+ },
+ "mcp_json_default": {
+  "mcpServers": {
+   "collide": {
+    "type": "http",
+    "url": "https://<collide-server>/mcp"
+   }
+  }
+ },
+ "collide_config_json": {
+  "server_url": "https://x.test",
+  "repo_id": "acme/repo",
+  "workspace": "ws1",
+  "local_parse": true
+ },
+ "collide_config_json_noworkspace": {
+  "server_url": "https://x.test",
+  "repo_id": "acme/repo",
+  "local_parse": true
+ },
+ "native_hook_install_script": "#!/bin/sh\n# Install Collide's native hook binary into .collide/bin/collide-hook.\n#\n# Optional. Without it the committed Python hooks run instead and behave\n# identically — this is purely a startup-time win (about 2ms against 34ms,\n# on something that fires for every tool call an agent makes).\nset -eu\n\nBASE=\"${COLLIDE_SERVER_URL:-https://x.test}\"\nROOT=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"\nDEST=\"$ROOT/.collide/bin\"\n\nEXT=\"\"\ncase \"$(uname -s)\" in\n  Darwin) OS=\"apple-darwin\" ;;\n  Linux)  OS=\"unknown-linux-gnu\" ;;\n  MINGW*|MSYS*|CYGWIN*) OS=\"pc-windows-msvc\"; EXT=\".exe\" ;;\n  *) echo \"collide: no native build for $(uname -s); the Python hooks stay in use.\" >&2; exit 0 ;;\nesac\ncase \"$(uname -m)\" in\n  arm64|aarch64) ARCH=\"aarch64\" ;;\n  x86_64|amd64)  ARCH=\"x86_64\" ;;\n  *) echo \"collide: no native build for $(uname -m); the Python hooks stay in use.\" >&2; exit 0 ;;\nesac\nTARGET=\"$ARCH-$OS\"\n\n# the committed pin wins: the exact build a reviewer saw in .collide/hooks.lock,\n# by version, checked against the digest in the repo's own history\nLOCK=\"$ROOT/.collide/hooks.lock\"\nif [ -f \"$LOCK\" ]; then\n  VERSION=\"$(sed -n 's/^version //p' \"$LOCK\" | head -1)\"\n  WANT=\"$(awk -v t=\"$TARGET\" '$1==t {print $2}' \"$LOCK\" | head -1)\"\n  if [ -z \"$VERSION\" ] || [ -z \"$WANT\" ]; then\n    echo \"collide: .collide/hooks.lock pins no $TARGET build; the Python hooks stay in use.\" >&2; exit 0\n  fi\n  URL=\"$BASE/artifacts/hooks/v/$VERSION/$TARGET\"\nelse\n  echo \"collide: no .collide/hooks.lock in this repo — trusting the server's digest for this one manual install.\" >&2\n  INDEX=\"$(curl -fsSL \"$BASE/artifacts/hooks\" 2>/dev/null || true)\"\n  case \"$INDEX\" in\n    *\"$TARGET\"*) ;;\n    *) echo \"collide: this server has no $TARGET build yet; the Python hooks stay in use.\" >&2; exit 0 ;;\n  esac\n  WANT=\"$(printf '%s' \"$INDEX\" | tr '{' '\\n' | grep \"$TARGET\" | grep -o 'sha256\"[^\"]*\"[0-9a-f]*' | grep -o '[0-9a-f]\\{64\\}' | head -1)\"\n  URL=\"$BASE/artifacts/hooks/$TARGET\"\nfi\n\nTMP=\"$(mktemp)\"\ntrap 'rm -f \"$TMP\"' EXIT\ncurl -fsSL \"$URL\" -o \"$TMP\"\n\nif command -v sha256sum >/dev/null 2>&1; then GOT=\"$(sha256sum \"$TMP\" | cut -d' ' -f1)\"\nelif command -v shasum >/dev/null 2>&1; then GOT=\"$(shasum -a 256 \"$TMP\" | cut -d' ' -f1)\"\nelse GOT=\"\"; fi\nif [ -z \"$WANT\" ] || [ -z \"$GOT\" ] || [ \"$GOT\" != \"$WANT\" ]; then\n  echo \"collide: the download does not match the pinned digest, refusing to install.\" >&2\n  exit 1\nfi\n\nmkdir -p \"$DEST\"\nchmod +x \"$TMP\"\nmv \"$TMP\" \"$DEST/collide-hook$EXT\"\ntrap - EXIT\necho \"collide: installed $(\"$DEST/collide-hook$EXT\" --version) to $DEST/collide-hook$EXT\"\necho \"collide: add .collide/bin/ to .gitignore — it is a per-platform binary.\"\n",
+ "precommit_hook_shim": "#!/bin/sh\n# Collide pre-commit gate — blocks a commit that lands on an in-flight\n# collision. Universal: fires for any agent and any human. Fail-open.\nroot=\"$(git rev-parse --show-toplevel 2>/dev/null || echo .)\"\nf=\"$root/.collide/pre_commit.py\"\nif [ -f \"$f\" ]; then exec python3 \"$f\"; else exec collide-pre-commit; fi\n",
+ "agent_rules_files": {
+  "AGENTS.md": "<!-- collide:start -->\n## Collide: cross-agent collision awareness (v24) — REQUIRED\n\nSeveral agents and people edit this repo at once. Collide keeps them from\noverwriting each other and hands each agent what the others already learned.\nIts hooks run the protocol for you, with no tool calls:\n\n- A **Collide briefing** arrives at session start and with each prompt: the\n  exact signatures, callers, recent changes, notes and replayable recipes for\n  the code you are about to touch. Build on it instead of re-reading files.\n- The **gate** checks every write. When it blocks, it says why (a teammate's\n  live change, or a numbered file whose number is taken, with the one now\n  reserved for you): you MUST adapt to it, then retry.\n- Every edit is **reported**, and the repo's check runs after writes; its\n  verdict arrives in your next tool result.\n- Lines starting with **Δ** in a tool result are teammates' changes since\n  your last step: adapt to them, never undo them.\n\nSo while the hooks run, do not call `declare_intent`, `check_collisions`,\n`report_edit` or `heartbeat`. Call a Collide tool only when it adds\nsomething, and load every one you need in a single ToolSearch:\n\n- `get_symbol` or `blast_radius`: a fact the briefing did not include.\n- `defer_intent`: you are leaving work unfinished (it becomes a task).\n- `send_agent_message` with `anchor=\"path.py::symbol\"`: hand work to\n  whoever is on that code.\n- `remember` with `anchor`: a durable decision about specific code.\n- `recap`, `explain_code`: what changed, why, and what it cost. Ask these\n  first, not `git log`.\n- `pending_reconciliations`: when told two agents' work collides.\n  ADDITIVE RESOLUTION: keep both sides' work and merge them; never delete\n  either. Reconcilers never spawn reconcilers.\n\n**Semantic lint**: a finding means a teammate renamed, removed or\nre-signatured a symbol you use. Apply a mechanical fix yourself; for a\njudgment fix, fix it inline or spawn ONE fixer (`claude -p`, `codex exec`,\n`gemini -p`) that verifies its work and must NEVER spawn further fixers.\n\n**No Collide briefing in your context?** The hooks are not running on this\nmachine. Call `setup` with repo_id `acme/repo`, then\nrun the one command it returns. Never install Python for Collide. If Collide reports an\n**Identity split** (hooks reporting as another account), do the same: setup\nre-mints under the current MCP login.\n\n**About Collide** (if the human asks): no plan ever blocks an agent; limits\ncover seats and repos at join time, and a workspace calling faster than its\nplan allows gets a short pause in Collide's answers. Viewers are free and\nunlimited, but their agents get nothing. Free is one player (the owner), one\nrepo, 10 agents at once, 7-day history; the owner's first invite means both get\n14 days of Team. Team is $19/seat/mo ($190/seat/yr) with a 14-day free trial\nwith no card; Business is $45/seat/mo ($450/seat/yr) and adds compliance, SSO\nand unlimited history; Enterprise is custom. Existing plans are grandfathered\nforever.\n\n<!-- collide:end -->",
+  ".cursor/rules/collide.mdc": "---\ndescription: Collide cross-agent collision protocol (required)\nalwaysApply: true\n---\n\n## Collide: cross-agent collision awareness (v24) — REQUIRED\n\nSeveral agents and people edit this repo at once. Collide keeps them from\noverwriting each other and hands each agent what the others already learned.\nIts hooks run the protocol for you, with no tool calls:\n\n- A **Collide briefing** arrives at session start and with each prompt: the\n  exact signatures, callers, recent changes, notes and replayable recipes for\n  the code you are about to touch. Build on it instead of re-reading files.\n- The **gate** checks every write. When it blocks, it says why (a teammate's\n  live change, or a numbered file whose number is taken, with the one now\n  reserved for you): you MUST adapt to it, then retry.\n- Every edit is **reported**, and the repo's check runs after writes; its\n  verdict arrives in your next tool result.\n- Lines starting with **Δ** in a tool result are teammates' changes since\n  your last step: adapt to them, never undo them.\n\nSo while the hooks run, do not call `declare_intent`, `check_collisions`,\n`report_edit` or `heartbeat`. Call a Collide tool only when it adds\nsomething, and load every one you need in a single ToolSearch:\n\n- `get_symbol` or `blast_radius`: a fact the briefing did not include.\n- `defer_intent`: you are leaving work unfinished (it becomes a task).\n- `send_agent_message` with `anchor=\"path.py::symbol\"`: hand work to\n  whoever is on that code.\n- `remember` with `anchor`: a durable decision about specific code.\n- `recap`, `explain_code`: what changed, why, and what it cost. Ask these\n  first, not `git log`.\n- `pending_reconciliations`: when told two agents' work collides.\n  ADDITIVE RESOLUTION: keep both sides' work and merge them; never delete\n  either. Reconcilers never spawn reconcilers.\n\n**Semantic lint**: a finding means a teammate renamed, removed or\nre-signatured a symbol you use. Apply a mechanical fix yourself; for a\njudgment fix, fix it inline or spawn ONE fixer (`claude -p`, `codex exec`,\n`gemini -p`) that verifies its work and must NEVER spawn further fixers.\n\n**No Collide briefing in your context?** The hooks are not running on this\nmachine. Call `setup` with repo_id `acme/repo`, then\nrun the one command it returns. Never install Python for Collide. If Collide reports an\n**Identity split** (hooks reporting as another account), do the same: setup\nre-mints under the current MCP login.\n\n**About Collide** (if the human asks): no plan ever blocks an agent; limits\ncover seats and repos at join time, and a workspace calling faster than its\nplan allows gets a short pause in Collide's answers. Viewers are free and\nunlimited, but their agents get nothing. Free is one player (the owner), one\nrepo, 10 agents at once, 7-day history; the owner's first invite means both get\n14 days of Team. Team is $19/seat/mo ($190/seat/yr) with a 14-day free trial\nwith no card; Business is $45/seat/mo ($450/seat/yr) and adds compliance, SSO\nand unlimited history; Enterprise is custom. Existing plans are grandfathered\nforever.\n\n",
+  ".clinerules/collide.md": "## Collide: cross-agent collision awareness (v24) — REQUIRED\n\nSeveral agents and people edit this repo at once. Collide keeps them from\noverwriting each other and hands each agent what the others already learned.\nIts hooks run the protocol for you, with no tool calls:\n\n- A **Collide briefing** arrives at session start and with each prompt: the\n  exact signatures, callers, recent changes, notes and replayable recipes for\n  the code you are about to touch. Build on it instead of re-reading files.\n- The **gate** checks every write. When it blocks, it says why (a teammate's\n  live change, or a numbered file whose number is taken, with the one now\n  reserved for you): you MUST adapt to it, then retry.\n- Every edit is **reported**, and the repo's check runs after writes; its\n  verdict arrives in your next tool result.\n- Lines starting with **Δ** in a tool result are teammates' changes since\n  your last step: adapt to them, never undo them.\n\nSo while the hooks run, do not call `declare_intent`, `check_collisions`,\n`report_edit` or `heartbeat`. Call a Collide tool only when it adds\nsomething, and load every one you need in a single ToolSearch:\n\n- `get_symbol` or `blast_radius`: a fact the briefing did not include.\n- `defer_intent`: you are leaving work unfinished (it becomes a task).\n- `send_agent_message` with `anchor=\"path.py::symbol\"`: hand work to\n  whoever is on that code.\n- `remember` with `anchor`: a durable decision about specific code.\n- `recap`, `explain_code`: what changed, why, and what it cost. Ask these\n  first, not `git log`.\n- `pending_reconciliations`: when told two agents' work collides.\n  ADDITIVE RESOLUTION: keep both sides' work and merge them; never delete\n  either. Reconcilers never spawn reconcilers.\n\n**Semantic lint**: a finding means a teammate renamed, removed or\nre-signatured a symbol you use. Apply a mechanical fix yourself; for a\njudgment fix, fix it inline or spawn ONE fixer (`claude -p`, `codex exec`,\n`gemini -p`) that verifies its work and must NEVER spawn further fixers.\n\n**No Collide briefing in your context?** The hooks are not running on this\nmachine. Call `setup` with repo_id `acme/repo`, then\nrun the one command it returns. Never install Python for Collide. If Collide reports an\n**Identity split** (hooks reporting as another account), do the same: setup\nre-mints under the current MCP login.\n\n**About Collide** (if the human asks): no plan ever blocks an agent; limits\ncover seats and repos at join time, and a workspace calling faster than its\nplan allows gets a short pause in Collide's answers. Viewers are free and\nunlimited, but their agents get nothing. Free is one player (the owner), one\nrepo, 10 agents at once, 7-day history; the owner's first invite means both get\n14 days of Team. Team is $19/seat/mo ($190/seat/yr) with a 14-day free trial\nwith no card; Business is $45/seat/mo ($450/seat/yr) and adds compliance, SSO\nand unlimited history; Enterprise is custom. Existing plans are grandfathered\nforever.\n\n",
+  ".windsurfrules": "<!-- collide:start -->\n## Collide: cross-agent collision awareness (v24) — REQUIRED\n\nSeveral agents and people edit this repo at once. Collide keeps them from\noverwriting each other and hands each agent what the others already learned.\nIts hooks run the protocol for you, with no tool calls:\n\n- A **Collide briefing** arrives at session start and with each prompt: the\n  exact signatures, callers, recent changes, notes and replayable recipes for\n  the code you are about to touch. Build on it instead of re-reading files.\n- The **gate** checks every write. When it blocks, it says why (a teammate's\n  live change, or a numbered file whose number is taken, with the one now\n  reserved for you): you MUST adapt to it, then retry.\n- Every edit is **reported**, and the repo's check runs after writes; its\n  verdict arrives in your next tool result.\n- Lines starting with **Δ** in a tool result are teammates' changes since\n  your last step: adapt to them, never undo them.\n\nSo while the hooks run, do not call `declare_intent`, `check_collisions`,\n`report_edit` or `heartbeat`. Call a Collide tool only when it adds\nsomething, and load every one you need in a single ToolSearch:\n\n- `get_symbol` or `blast_radius`: a fact the briefing did not include.\n- `defer_intent`: you are leaving work unfinished (it becomes a task).\n- `send_agent_message` with `anchor=\"path.py::symbol\"`: hand work to\n  whoever is on that code.\n- `remember` with `anchor`: a durable decision about specific code.\n- `recap`, `explain_code`: what changed, why, and what it cost. Ask these\n  first, not `git log`.\n- `pending_reconciliations`: when told two agents' work collides.\n  ADDITIVE RESOLUTION: keep both sides' work and merge them; never delete\n  either. Reconcilers never spawn reconcilers.\n\n**Semantic lint**: a finding means a teammate renamed, removed or\nre-signatured a symbol you use. Apply a mechanical fix yourself; for a\njudgment fix, fix it inline or spawn ONE fixer (`claude -p`, `codex exec`,\n`gemini -p`) that verifies its work and must NEVER spawn further fixers.\n\n**No Collide briefing in your context?** The hooks are not running on this\nmachine. Call `setup` with repo_id `acme/repo`, then\nrun the one command it returns. Never install Python for Collide. If Collide reports an\n**Identity split** (hooks reporting as another account), do the same: setup\nre-mints under the current MCP login.\n\n**About Collide** (if the human asks): no plan ever blocks an agent; limits\ncover seats and repos at join time, and a workspace calling faster than its\nplan allows gets a short pause in Collide's answers. Viewers are free and\nunlimited, but their agents get nothing. Free is one player (the owner), one\nrepo, 10 agents at once, 7-day history; the owner's first invite means both get\n14 days of Team. Team is $19/seat/mo ($190/seat/yr) with a 14-day free trial\nwith no card; Business is $45/seat/mo ($450/seat/yr) and adds compliance, SSO\nand unlimited history; Enterprise is custom. Existing plans are grandfathered\nforever.\n\n<!-- collide:end -->",
+  ".github/copilot-instructions.md": "<!-- collide:start -->\n## Collide: cross-agent collision awareness (v24) — REQUIRED\n\nSeveral agents and people edit this repo at once. Collide keeps them from\noverwriting each other and hands each agent what the others already learned.\nIts hooks run the protocol for you, with no tool calls:\n\n- A **Collide briefing** arrives at session start and with each prompt: the\n  exact signatures, callers, recent changes, notes and replayable recipes for\n  the code you are about to touch. Build on it instead of re-reading files.\n- The **gate** checks every write. When it blocks, it says why (a teammate's\n  live change, or a numbered file whose number is taken, with the one now\n  reserved for you): you MUST adapt to it, then retry.\n- Every edit is **reported**, and the repo's check runs after writes; its\n  verdict arrives in your next tool result.\n- Lines starting with **Δ** in a tool result are teammates' changes since\n  your last step: adapt to them, never undo them.\n\nSo while the hooks run, do not call `declare_intent`, `check_collisions`,\n`report_edit` or `heartbeat`. Call a Collide tool only when it adds\nsomething, and load every one you need in a single ToolSearch:\n\n- `get_symbol` or `blast_radius`: a fact the briefing did not include.\n- `defer_intent`: you are leaving work unfinished (it becomes a task).\n- `send_agent_message` with `anchor=\"path.py::symbol\"`: hand work to\n  whoever is on that code.\n- `remember` with `anchor`: a durable decision about specific code.\n- `recap`, `explain_code`: what changed, why, and what it cost. Ask these\n  first, not `git log`.\n- `pending_reconciliations`: when told two agents' work collides.\n  ADDITIVE RESOLUTION: keep both sides' work and merge them; never delete\n  either. Reconcilers never spawn reconcilers.\n\n**Semantic lint**: a finding means a teammate renamed, removed or\nre-signatured a symbol you use. Apply a mechanical fix yourself; for a\njudgment fix, fix it inline or spawn ONE fixer (`claude -p`, `codex exec`,\n`gemini -p`) that verifies its work and must NEVER spawn further fixers.\n\n**No Collide briefing in your context?** The hooks are not running on this\nmachine. Call `setup` with repo_id `acme/repo`, then\nrun the one command it returns. Never install Python for Collide. If Collide reports an\n**Identity split** (hooks reporting as another account), do the same: setup\nre-mints under the current MCP login.\n\n**About Collide** (if the human asks): no plan ever blocks an agent; limits\ncover seats and repos at join time, and a workspace calling faster than its\nplan allows gets a short pause in Collide's answers. Viewers are free and\nunlimited, but their agents get nothing. Free is one player (the owner), one\nrepo, 10 agents at once, 7-day history; the owner's first invite means both get\n14 days of Team. Team is $19/seat/mo ($190/seat/yr) with a 14-day free trial\nwith no card; Business is $45/seat/mo ($450/seat/yr) and adds compliance, SSO\nand unlimited history; Enterprise is custom. Existing plans are grandfathered\nforever.\n\n<!-- collide:end -->"
+ },
+ "agent_mcp_files": {
+  ".mcp.json": "{\n  \"mcpServers\": {\n    \"collide\": {\n      \"type\": \"http\",\n      \"url\": \"https://x.test/mcp\"\n    }\n  }\n}\n",
+  ".cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"collide\": {\n      \"type\": \"http\",\n      \"url\": \"https://x.test/mcp\"\n    }\n  }\n}\n"
+ },
+ "agent_snippets": {
+  "codex": "Codex reads AGENTS.md for the protocol and .codex/hooks.json for the report+gate hooks (committed by connect_agents), so it gets real per-edit blocking, not just advisory. Approve the hooks once when Codex prompts for trust (or set bypass_hook_trust). Codex pins that trust to a hash of the hook definition and does not reload it mid-session, so after Collide writes the file, restart Codex and approve it in /hooks. For the MCP tools, add to ~/.codex/config.toml:\n[mcp_servers.collide]\nurl = \"https://x.test/mcp\"\n",
+  "cursor": "Cursor reads .cursor/rules/collide.mdc for the protocol and .cursor/hooks.json for the report+gate hooks (both committed by connect_agents), so it gets real per-edit blocking too. Its preToolUse answer carries allow/deny/ask, and its postToolUse carries the briefing notes back into the agent. There is no batch event, so the repo's own check is spawned after a write and its verdict rides the next tool result. MCP tools come from the committed .cursor/mcp.json: {\"mcpServers\": {\"collide\": {\"type\": \"http\", \"url\": \"https://x.test/mcp\"}}}\n",
+  "hermes": "Hermes runs Collide's committed hooks through its plugin hooks. Add to ~/.hermes/config.yaml:\nhooks:\n  pre_llm_call: [\"python3 .collide/report_hook.py --harness hermes\"]\n  pre_tool_call: [\"python3 .collide/gate_hook.py --harness hermes\"]\n  post_tool_call: [\"python3 .collide/report_hook.py --harness hermes\"]\nGating and reporting both work. Hermes discards a post_tool_call return value by design, so notes that would ride a tool result are queued and arrive with the next turn's briefing instead. MCP tools: {\"mcpServers\": {\"collide\": {\"type\": \"http\", \"url\": \"https://x.test/mcp\"}}}\n",
+  "cline_windsurf": "Add the server to your Cline/Windsurf MCP settings (VS Code):\n{\"mcpServers\": {\"collide\": {\"type\": \"http\", \"url\": \"https://x.test/mcp\"}}}\n",
+  "watcher": "Enforcement floor for ANY agent — reports every edit from disk, no hooks needed:\npipx install collide-watch   # or: pip install collide-watch\ncollide-watch --repo-id \"acme/repo\" --server \"https://x.test\" --token \"$COLLIDE_TOKEN\"\n"
+ },
+ "mcp_endpoint": "https://x.test/mcp",
+ "mcp_endpoint_mcpurl": "https://mcp.x.test/mcp",
+ "mcp_endpoint_default": "https://<collide-server>/mcp",
+ "sync_agents_content_absent": {
+  "content": "hello world\nno markers here\n\n<!-- collide:start -->\n## Collide: cross-agent collision awareness (v24) — REQUIRED\n\nSeveral agents and people edit this repo at once. Collide keeps them from\noverwriting each other and hands each agent what the others already learned.\nIts hooks run the protocol for you, with no tool calls:\n\n- A **Collide briefing** arrives at session start and with each prompt: the\n  exact signatures, callers, recent changes, notes and replayable recipes for\n  the code you are about to touch. Build on it instead of re-reading files.\n- The **gate** checks every write. When it blocks, it says why (a teammate's\n  live change, or a numbered file whose number is taken, with the one now\n  reserved for you): you MUST adapt to it, then retry.\n- Every edit is **reported**, and the repo's check runs after writes; its\n  verdict arrives in your next tool result.\n- Lines starting with **Δ** in a tool result are teammates' changes since\n  your last step: adapt to them, never undo them.\n\nSo while the hooks run, do not call `declare_intent`, `check_collisions`,\n`report_edit` or `heartbeat`. Call a Collide tool only when it adds\nsomething, and load every one you need in a single ToolSearch:\n\n- `get_symbol` or `blast_radius`: a fact the briefing did not include.\n- `defer_intent`: you are leaving work unfinished (it becomes a task).\n- `send_agent_message` with `anchor=\"path.py::symbol\"`: hand work to\n  whoever is on that code.\n- `remember` with `anchor`: a durable decision about specific code.\n- `recap`, `explain_code`: what changed, why, and what it cost. Ask these\n  first, not `git log`.\n- `pending_reconciliations`: when told two agents' work collides.\n  ADDITIVE RESOLUTION: keep both sides' work and merge them; never delete\n  either. Reconcilers never spawn reconcilers.\n\n**Semantic lint**: a finding means a teammate renamed, removed or\nre-signatured a symbol you use. Apply a mechanical fix yourself; for a\njudgment fix, fix it inline or spawn ONE fixer (`claude -p`, `codex exec`,\n`gemini -p`) that verifies its work and must NEVER spawn further fixers.\n\n**No Collide briefing in your context?** The hooks are not running on this\nmachine. Call `setup` with repo_id `acme/repo`, then\nrun the one command it returns. Never install Python for Collide. If Collide reports an\n**Identity split** (hooks reporting as another account), do the same: setup\nre-mints under the current MCP login.\n\n**About Collide** (if the human asks): no plan ever blocks an agent; limits\ncover seats and repos at join time, and a workspace calling faster than its\nplan allows gets a short pause in Collide's answers. Viewers are free and\nunlimited, but their agents get nothing. Free is one player (the owner), one\nrepo, 10 agents at once, 7-day history; the owner's first invite means both get\n14 days of Team. Team is $19/seat/mo ($190/seat/yr) with a 14-day free trial\nwith no card; Business is $45/seat/mo ($450/seat/yr) and adds compliance, SSO\nand unlimited history; Enterprise is custom. Existing plans are grandfathered\nforever.\n\n<!-- collide:end -->\n",
+  "markers_found": false
+ },
+ "sync_agents_content_present": {
+  "content": "before\n<!-- collide:start -->\n## Collide: cross-agent collision awareness (v24) — REQUIRED\n\nSeveral agents and people edit this repo at once. Collide keeps them from\noverwriting each other and hands each agent what the others already learned.\nIts hooks run the protocol for you, with no tool calls:\n\n- A **Collide briefing** arrives at session start and with each prompt: the\n  exact signatures, callers, recent changes, notes and replayable recipes for\n  the code you are about to touch. Build on it instead of re-reading files.\n- The **gate** checks every write. When it blocks, it says why (a teammate's\n  live change, or a numbered file whose number is taken, with the one now\n  reserved for you): you MUST adapt to it, then retry.\n- Every edit is **reported**, and the repo's check runs after writes; its\n  verdict arrives in your next tool result.\n- Lines starting with **Δ** in a tool result are teammates' changes since\n  your last step: adapt to them, never undo them.\n\nSo while the hooks run, do not call `declare_intent`, `check_collisions`,\n`report_edit` or `heartbeat`. Call a Collide tool only when it adds\nsomething, and load every one you need in a single ToolSearch:\n\n- `get_symbol` or `blast_radius`: a fact the briefing did not include.\n- `defer_intent`: you are leaving work unfinished (it becomes a task).\n- `send_agent_message` with `anchor=\"path.py::symbol\"`: hand work to\n  whoever is on that code.\n- `remember` with `anchor`: a durable decision about specific code.\n- `recap`, `explain_code`: what changed, why, and what it cost. Ask these\n  first, not `git log`.\n- `pending_reconciliations`: when told two agents' work collides.\n  ADDITIVE RESOLUTION: keep both sides' work and merge them; never delete\n  either. Reconcilers never spawn reconcilers.\n\n**Semantic lint**: a finding means a teammate renamed, removed or\nre-signatured a symbol you use. Apply a mechanical fix yourself; for a\njudgment fix, fix it inline or spawn ONE fixer (`claude -p`, `codex exec`,\n`gemini -p`) that verifies its work and must NEVER spawn further fixers.\n\n**No Collide briefing in your context?** The hooks are not running on this\nmachine. Call `setup` with repo_id `acme/repo`, then\nrun the one command it returns. Never install Python for Collide. If Collide reports an\n**Identity split** (hooks reporting as another account), do the same: setup\nre-mints under the current MCP login.\n\n**About Collide** (if the human asks): no plan ever blocks an agent; limits\ncover seats and repos at join time, and a workspace calling faster than its\nplan allows gets a short pause in Collide's answers. Viewers are free and\nunlimited, but their agents get nothing. Free is one player (the owner), one\nrepo, 10 agents at once, 7-day history; the owner's first invite means both get\n14 days of Team. Team is $19/seat/mo ($190/seat/yr) with a 14-day free trial\nwith no card; Business is $45/seat/mo ($450/seat/yr) and adds compliance, SSO\nand unlimited history; Enterprise is custom. Existing plans are grandfathered\nforever.\n\n<!-- collide:end -->\nafter\n",
+  "markers_found": true
+ },
+ "canonical_block": "<!-- collide:start -->\n## Collide: cross-agent collision awareness (v24) — REQUIRED\n\nSeveral agents and people edit this repo at once. Collide keeps them from\noverwriting each other and hands each agent what the others already learned.\nIts hooks run the protocol for you, with no tool calls:\n\n- A **Collide briefing** arrives at session start and with each prompt: the\n  exact signatures, callers, recent changes, notes and replayable recipes for\n  the code you are about to touch. Build on it instead of re-reading files.\n- The **gate** checks every write. When it blocks, it says why (a teammate's\n  live change, or a numbered file whose number is taken, with the one now\n  reserved for you): you MUST adapt to it, then retry.\n- Every edit is **reported**, and the repo's check runs after writes; its\n  verdict arrives in your next tool result.\n- Lines starting with **Δ** in a tool result are teammates' changes since\n  your last step: adapt to them, never undo them.\n\nSo while the hooks run, do not call `declare_intent`, `check_collisions`,\n`report_edit` or `heartbeat`. Call a Collide tool only when it adds\nsomething, and load every one you need in a single ToolSearch:\n\n- `get_symbol` or `blast_radius`: a fact the briefing did not include.\n- `defer_intent`: you are leaving work unfinished (it becomes a task).\n- `send_agent_message` with `anchor=\"path.py::symbol\"`: hand work to\n  whoever is on that code.\n- `remember` with `anchor`: a durable decision about specific code.\n- `recap`, `explain_code`: what changed, why, and what it cost. Ask these\n  first, not `git log`.\n- `pending_reconciliations`: when told two agents' work collides.\n  ADDITIVE RESOLUTION: keep both sides' work and merge them; never delete\n  either. Reconcilers never spawn reconcilers.\n\n**Semantic lint**: a finding means a teammate renamed, removed or\nre-signatured a symbol you use. Apply a mechanical fix yourself; for a\njudgment fix, fix it inline or spawn ONE fixer (`claude -p`, `codex exec`,\n`gemini -p`) that verifies its work and must NEVER spawn further fixers.\n\n**No Collide briefing in your context?** The hooks are not running on this\nmachine. Call `setup` with repo_id `acme/repo`, then\nrun the one command it returns. Never install Python for Collide. If Collide reports an\n**Identity split** (hooks reporting as another account), do the same: setup\nre-mints under the current MCP login.\n\n**About Collide** (if the human asks): no plan ever blocks an agent; limits\ncover seats and repos at join time, and a workspace calling faster than its\nplan allows gets a short pause in Collide's answers. Viewers are free and\nunlimited, but their agents get nothing. Free is one player (the owner), one\nrepo, 10 agents at once, 7-day history; the owner's first invite means both get\n14 days of Team. Team is $19/seat/mo ($190/seat/yr) with a 14-day free trial\nwith no card; Business is $45/seat/mo ($450/seat/yr) and adds compliance, SSO\nand unlimited history; Enterprise is custom. Existing plans are grandfathered\nforever.\n\n<!-- collide:end -->",
+ "parse_block_version_present": 20,
+ "parse_block_version_absent": null,
+ "setup_enforce": {
+  "mode": "enforce",
+  "agents_md_block": "<!-- collide:start -->\n## Collide: cross-agent collision awareness (v24) — REQUIRED\n\nSeveral agents and people edit this repo at once. Collide keeps them from\noverwriting each other and hands each agent what the others already learned.\nIts hooks run the protocol for you, with no tool calls:\n\n- A **Collide briefing** arrives at session start and with each prompt: the\n  exact signatures, callers, recent changes, notes and replayable recipes for\n  the code you are about to touch. Build on it instead of re-reading files.\n- The **gate** checks every write. When it blocks, it says why (a teammate's\n  live change, or a numbered file whose number is taken, with the one now\n  reserved for you): you MUST adapt to it, then retry.\n- Every edit is **reported**, and the repo's check runs after writes; its\n  verdict arrives in your next tool result.\n- Lines starting with **Δ** in a tool result are teammates' changes since\n  your last step: adapt to them, never undo them.\n\nSo while the hooks run, do not call `declare_intent`, `check_collisions`,\n`report_edit` or `heartbeat`. Call a Collide tool only when it adds\nsomething, and load every one you need in a single ToolSearch:\n\n- `get_symbol` or `blast_radius`: a fact the briefing did not include.\n- `defer_intent`: you are leaving work unfinished (it becomes a task).\n- `send_agent_message` with `anchor=\"path.py::symbol\"`: hand work to\n  whoever is on that code.\n- `remember` with `anchor`: a durable decision about specific code.\n- `recap`, `explain_code`: what changed, why, and what it cost. Ask these\n  first, not `git log`.\n- `pending_reconciliations`: when told two agents' work collides.\n  ADDITIVE RESOLUTION: keep both sides' work and merge them; never delete\n  either. Reconcilers never spawn reconcilers.\n\n**Semantic lint**: a finding means a teammate renamed, removed or\nre-signatured a symbol you use. Apply a mechanical fix yourself; for a\njudgment fix, fix it inline or spawn ONE fixer (`claude -p`, `codex exec`,\n`gemini -p`) that verifies its work and must NEVER spawn further fixers.\n\n**No Collide briefing in your context?** The hooks are not running on this\nmachine. Call `setup` with repo_id `acme/repo`, then\nrun the one command it returns. Never install Python for Collide. If Collide reports an\n**Identity split** (hooks reporting as another account), do the same: setup\nre-mints under the current MCP login.\n\n**About Collide** (if the human asks): no plan ever blocks an agent; limits\ncover seats and repos at join time, and a workspace calling faster than its\nplan allows gets a short pause in Collide's answers. Viewers are free and\nunlimited, but their agents get nothing. Free is one player (the owner), one\nrepo, 10 agents at once, 7-day history; the owner's first invite means both get\n14 days of Team. Team is $19/seat/mo ($190/seat/yr) with a 14-day free trial\nwith no card; Business is $45/seat/mo ($450/seat/yr) and adds compliance, SSO\nand unlimited history; Enterprise is custom. Existing plans are grandfathered\nforever.\n\n<!-- collide:end -->",
+  "markers": {
+   "start": "<!-- collide:start -->",
+   "end": "<!-- collide:end -->"
+  },
+  "apply_with": "sync_agents_block",
+  "claude_settings": {
+   "permissions": {
+    "allow": [
+     "mcp__collide"
+    ]
+   },
+   "enabledMcpjsonServers": [
+    "collide"
+   ],
+   "hooks": {
+    "PostToolUse": [
+     {
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     },
+     {
+      "matcher": "Read|Grep|Glob|Bash",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "PostToolUseFailure": [
+     {
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob|Bash",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "Stop": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "SessionEnd": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "PostToolBatch": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 10
+       }
+      ]
+     }
+    ],
+    "UserPromptSubmit": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 10
+       }
+      ]
+     }
+    ],
+    "ConfigChange": [
+     {
+      "matcher": "project_settings|local_settings|user_settings",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "SessionStart": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "i=$(cat 2>/dev/null); b=$(git rev-parse HEAD 2>/dev/null); GIT_TERMINAL_PROMPT=0 git fetch origin --quiet 2>/dev/null; if [ \"$COLLIDE_AUTO_PULL\" = \"1\" ] || grep -qs '\"auto_pull\": *true' \"${CLAUDE_PROJECT_DIR:-.}/.collide/config.json\"; then GIT_TERMINAL_PROMPT=0 git pull --ff-only --quiet 2>/dev/null; a=$(git rev-parse HEAD 2>/dev/null); if [ -n \"$b\" ] && [ -n \"$a\" ] && [ \"$a\" != \"$b\" ]; then echo \"Collide: pulled $(git rev-list --count \"$b\"..\"$a\" 2>/dev/null) new commit(s) from origin at session start — teammates' work just landed. Re-read any file you plan to edit and check get_briefing for what changed.\"; fi; else n=$(git rev-list --count HEAD..@{u} 2>/dev/null); if [ -n \"$n\" ] && [ \"$n\" -gt 0 ] 2>/dev/null; then echo \"Collide: origin is $n commit(s) ahead of this checkout. Pull when it suits you (git pull --ff-only) and check get_briefing for what changed.\"; fi; fi; b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; exit 0; fi; d=\"${CLAUDE_PROJECT_DIR:-.}\"; f=\"$d/.collide/report_hook.py\"; l=\"$d/.collide/hooks.lock\"; if [ -f \"$l\" ] && ! find \"$d/.collide/bin/.native-tried\" -mmin -10 2>/dev/null | grep -q . && command -v curl >/dev/null 2>&1; then mkdir -p \"$d/.collide/bin\" 2>/dev/null; : > \"$d/.collide/bin/.native-tried\" 2>/dev/null; grep -qs \"^\\.collide/bin\" \"$d/.gitignore\" || printf \"%s\\n\" \"# per-platform native hook, installed by Collide\" \".collide/bin/\" >> \"$d/.gitignore\" 2>/dev/null; s=$(sed -n 's/.*\"server_url\": *\"\\([^\"]*\\)\".*/\\1/p' \"$d/.collide/config.json\" 2>/dev/null | head -1); e=\"\"; case \"$(uname -s)\" in Darwin) o=apple-darwin;; Linux) o=unknown-linux-gnu;; MINGW*|MSYS*|CYGWIN*) o=pc-windows-msvc; e=.exe;; *) o=\"\";; esac; case \"$(uname -m)\" in arm64|aarch64) m=aarch64;; x86_64|amd64) m=x86_64;; *) m=\"\";; esac; v=$(sed -n 's/^version //p' \"$l\" | head -1); w=$(awk -v t=\"$m-$o\" '$1==t {print $2}' \"$l\" | head -1); if [ -n \"$s\" ] && [ -n \"$o\" ] && [ -n \"$m\" ] && [ -n \"$v\" ] && [ -n \"$w\" ]; then t=\"$d/.collide/bin/.download\"; if curl -fsSL --max-time 60 \"$s/artifacts/hooks/v/$v/$m-$o\" -o \"$t\" 2>/dev/null; then g=$( (shasum -a 256 \"$t\" 2>/dev/null || sha256sum \"$t\" 2>/dev/null) | cut -d\" \" -f1); if [ -n \"$g\" ] && [ \"$g\" = \"$w\" ]; then chmod +x \"$t\" && mv \"$t\" \"$d/.collide/bin/collide-hook$e\"; fi; fi; rm -f \"$t\" 2>/dev/null; b=\"$d/.collide/bin/collide-hook\"; if [ -x \"$b\" ] || [ -x \"$b.exe\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; printf \"%s\" \"$i\" | \"$b\" report 2>/dev/null || true; exit 0; fi; fi; fi; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -z \"$p\" ]; then echo \"Collide: the native hook could not be downloaded here (no curl, or no build for this platform) and no working Python interpreter is on PATH for the fallback, so the hooks cannot run and NOTHING you edit is being reported. Fix this before any other work, without asking. On Windows the usual cause is that python3 resolves to the Microsoft Store App Execution Alias stub (AppData/Local/Microsoft/WindowsApps/python3), which prints 'Python was not found' and exits 49 rather than running anything: install a real interpreter with winget install -e --id Python.3.12, and turn the alias off under Settings > Apps > Advanced app settings > App execution aliases. Hooks also run under Git Bash: winget install -e --id Git.Git. Restart the session afterwards, then tell the human.\"; elif [ ! -f \"$f\" ]; then echo \"Collide: .collide/report_hook.py is missing from this repo, so no edit is being reported. Before any other work call the collide MCP tool setup and commit the repo files it returns, then tell the human.\"; else \"$p\" \"$f\" --check-credentials \"$p\" 2>/dev/null || true; fi",
+        "timeout": 15
+       },
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 30
+       }
+      ]
+     }
+    ],
+    "PreToolUse": [
+     {
+      "matcher": "Edit|Write|MultiEdit|Bash",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then exec \"$b\" gate; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/gate_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\"; else collide-gate-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ]
+   }
+  },
+  "mcp_json": {
+   "mcpServers": {
+    "collide": {
+     "type": "http",
+     "url": "https://x.test/mcp"
+    }
+   }
+  },
+  "setup_notes": [
+   "Merge claude_settings into the repo's .claude/settings.json (create it if absent) and commit: Claude Code then auto-allows every collide tool call instead of prompting each time. The allow entry is scoped to mcp__collide only.",
+   "Merge mcp_json into the repo's .mcp.json and commit so every teammate's client discovers the server; each user still authenticates through OAuth as themselves.",
+   "claude_settings wires the hooks that report every Edit/Write, brief the session and run the repo's check — no model in the loop. They are the committed scripts in repo_files and need nothing installed: no package, nothing on PATH, no environment variables. They read .collide/config.json and the per-machine credential, and they fail open, so a machine without one is silent rather than broken."
+  ],
+  "hooks": {
+   "hooks": {
+    "PostToolUse": [
+     {
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     },
+     {
+      "matcher": "Read|Grep|Glob|Bash",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "PostToolUseFailure": [
+     {
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob|Bash",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "Stop": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "SessionEnd": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "PostToolBatch": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 10
+       }
+      ]
+     }
+    ],
+    "UserPromptSubmit": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 10
+       }
+      ]
+     }
+    ],
+    "ConfigChange": [
+     {
+      "matcher": "project_settings|local_settings|user_settings",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "SessionStart": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "i=$(cat 2>/dev/null); b=$(git rev-parse HEAD 2>/dev/null); GIT_TERMINAL_PROMPT=0 git fetch origin --quiet 2>/dev/null; if [ \"$COLLIDE_AUTO_PULL\" = \"1\" ] || grep -qs '\"auto_pull\": *true' \"${CLAUDE_PROJECT_DIR:-.}/.collide/config.json\"; then GIT_TERMINAL_PROMPT=0 git pull --ff-only --quiet 2>/dev/null; a=$(git rev-parse HEAD 2>/dev/null); if [ -n \"$b\" ] && [ -n \"$a\" ] && [ \"$a\" != \"$b\" ]; then echo \"Collide: pulled $(git rev-list --count \"$b\"..\"$a\" 2>/dev/null) new commit(s) from origin at session start — teammates' work just landed. Re-read any file you plan to edit and check get_briefing for what changed.\"; fi; else n=$(git rev-list --count HEAD..@{u} 2>/dev/null); if [ -n \"$n\" ] && [ \"$n\" -gt 0 ] 2>/dev/null; then echo \"Collide: origin is $n commit(s) ahead of this checkout. Pull when it suits you (git pull --ff-only) and check get_briefing for what changed.\"; fi; fi; b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; exit 0; fi; d=\"${CLAUDE_PROJECT_DIR:-.}\"; f=\"$d/.collide/report_hook.py\"; l=\"$d/.collide/hooks.lock\"; if [ -f \"$l\" ] && ! find \"$d/.collide/bin/.native-tried\" -mmin -10 2>/dev/null | grep -q . && command -v curl >/dev/null 2>&1; then mkdir -p \"$d/.collide/bin\" 2>/dev/null; : > \"$d/.collide/bin/.native-tried\" 2>/dev/null; grep -qs \"^\\.collide/bin\" \"$d/.gitignore\" || printf \"%s\\n\" \"# per-platform native hook, installed by Collide\" \".collide/bin/\" >> \"$d/.gitignore\" 2>/dev/null; s=$(sed -n 's/.*\"server_url\": *\"\\([^\"]*\\)\".*/\\1/p' \"$d/.collide/config.json\" 2>/dev/null | head -1); e=\"\"; case \"$(uname -s)\" in Darwin) o=apple-darwin;; Linux) o=unknown-linux-gnu;; MINGW*|MSYS*|CYGWIN*) o=pc-windows-msvc; e=.exe;; *) o=\"\";; esac; case \"$(uname -m)\" in arm64|aarch64) m=aarch64;; x86_64|amd64) m=x86_64;; *) m=\"\";; esac; v=$(sed -n 's/^version //p' \"$l\" | head -1); w=$(awk -v t=\"$m-$o\" '$1==t {print $2}' \"$l\" | head -1); if [ -n \"$s\" ] && [ -n \"$o\" ] && [ -n \"$m\" ] && [ -n \"$v\" ] && [ -n \"$w\" ]; then t=\"$d/.collide/bin/.download\"; if curl -fsSL --max-time 60 \"$s/artifacts/hooks/v/$v/$m-$o\" -o \"$t\" 2>/dev/null; then g=$( (shasum -a 256 \"$t\" 2>/dev/null || sha256sum \"$t\" 2>/dev/null) | cut -d\" \" -f1); if [ -n \"$g\" ] && [ \"$g\" = \"$w\" ]; then chmod +x \"$t\" && mv \"$t\" \"$d/.collide/bin/collide-hook$e\"; fi; fi; rm -f \"$t\" 2>/dev/null; b=\"$d/.collide/bin/collide-hook\"; if [ -x \"$b\" ] || [ -x \"$b.exe\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; printf \"%s\" \"$i\" | \"$b\" report 2>/dev/null || true; exit 0; fi; fi; fi; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -z \"$p\" ]; then echo \"Collide: the native hook could not be downloaded here (no curl, or no build for this platform) and no working Python interpreter is on PATH for the fallback, so the hooks cannot run and NOTHING you edit is being reported. Fix this before any other work, without asking. On Windows the usual cause is that python3 resolves to the Microsoft Store App Execution Alias stub (AppData/Local/Microsoft/WindowsApps/python3), which prints 'Python was not found' and exits 49 rather than running anything: install a real interpreter with winget install -e --id Python.3.12, and turn the alias off under Settings > Apps > Advanced app settings > App execution aliases. Hooks also run under Git Bash: winget install -e --id Git.Git. Restart the session afterwards, then tell the human.\"; elif [ ! -f \"$f\" ]; then echo \"Collide: .collide/report_hook.py is missing from this repo, so no edit is being reported. Before any other work call the collide MCP tool setup and commit the repo files it returns, then tell the human.\"; else \"$p\" \"$f\" --check-credentials \"$p\" 2>/dev/null || true; fi",
+        "timeout": 15
+       },
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 30
+       }
+      ]
+     }
+    ],
+    "PreToolUse": [
+     {
+      "matcher": "Edit|Write|MultiEdit|Bash",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then exec \"$b\" gate; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/gate_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\"; else collide-gate-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ]
+   },
+   "server_url": "https://x.test"
+  },
+  "enforce_notes": [
+   "Enforce is the default: a PreToolUse gate calls check_collisions before every Edit/Write and BLOCKS the write on a confidence-certain collision, so the model never has to remember to check. Pass mode='advisory' to ship reporting without the gate.",
+   "The gate ships as a committed repo artifact (.collide/gate_hook.py) alongside the report hook — no pip, no PATH; it reads .collide/config.json like the report hook.",
+   "The hook fails open: any error, timeout, missing config, or non-200 allows the write.",
+   "Enforce works on Claude Code, Codex, Cursor and Hermes: each has a pre-tool hook that can refuse a write, and the committed gate answers in whichever shape that harness reads. Anything else runs advisory, with the git pre-commit hook as the floor."
+  ]
+ },
+ "setup_advisory": {
+  "mode": "advisory",
+  "agents_md_block": "<!-- collide:start -->\n## Collide: cross-agent collision awareness (v24) — REQUIRED\n\nSeveral agents and people edit this repo at once. Collide keeps them from\noverwriting each other and hands each agent what the others already learned.\nIts hooks run the protocol for you, with no tool calls:\n\n- A **Collide briefing** arrives at session start and with each prompt: the\n  exact signatures, callers, recent changes, notes and replayable recipes for\n  the code you are about to touch. Build on it instead of re-reading files.\n- The **gate** checks every write. When it blocks, it says why (a teammate's\n  live change, or a numbered file whose number is taken, with the one now\n  reserved for you): you MUST adapt to it, then retry.\n- Every edit is **reported**, and the repo's check runs after writes; its\n  verdict arrives in your next tool result.\n- Lines starting with **Δ** in a tool result are teammates' changes since\n  your last step: adapt to them, never undo them.\n\nSo while the hooks run, do not call `declare_intent`, `check_collisions`,\n`report_edit` or `heartbeat`. Call a Collide tool only when it adds\nsomething, and load every one you need in a single ToolSearch:\n\n- `get_symbol` or `blast_radius`: a fact the briefing did not include.\n- `defer_intent`: you are leaving work unfinished (it becomes a task).\n- `send_agent_message` with `anchor=\"path.py::symbol\"`: hand work to\n  whoever is on that code.\n- `remember` with `anchor`: a durable decision about specific code.\n- `recap`, `explain_code`: what changed, why, and what it cost. Ask these\n  first, not `git log`.\n- `pending_reconciliations`: when told two agents' work collides.\n  ADDITIVE RESOLUTION: keep both sides' work and merge them; never delete\n  either. Reconcilers never spawn reconcilers.\n\n**Semantic lint**: a finding means a teammate renamed, removed or\nre-signatured a symbol you use. Apply a mechanical fix yourself; for a\njudgment fix, fix it inline or spawn ONE fixer (`claude -p`, `codex exec`,\n`gemini -p`) that verifies its work and must NEVER spawn further fixers.\n\n**No Collide briefing in your context?** The hooks are not running on this\nmachine. Call `setup` with repo_id `acme/repo`, then\nrun the one command it returns. Never install Python for Collide. If Collide reports an\n**Identity split** (hooks reporting as another account), do the same: setup\nre-mints under the current MCP login.\n\n**About Collide** (if the human asks): no plan ever blocks an agent; limits\ncover seats and repos at join time, and a workspace calling faster than its\nplan allows gets a short pause in Collide's answers. Viewers are free and\nunlimited, but their agents get nothing. Free is one player (the owner), one\nrepo, 10 agents at once, 7-day history; the owner's first invite means both get\n14 days of Team. Team is $19/seat/mo ($190/seat/yr) with a 14-day free trial\nwith no card; Business is $45/seat/mo ($450/seat/yr) and adds compliance, SSO\nand unlimited history; Enterprise is custom. Existing plans are grandfathered\nforever.\n\n<!-- collide:end -->",
+  "markers": {
+   "start": "<!-- collide:start -->",
+   "end": "<!-- collide:end -->"
+  },
+  "apply_with": "sync_agents_block",
+  "claude_settings": {
+   "permissions": {
+    "allow": [
+     "mcp__collide"
+    ]
+   },
+   "enabledMcpjsonServers": [
+    "collide"
+   ],
+   "hooks": {
+    "PostToolUse": [
+     {
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     },
+     {
+      "matcher": "Read|Grep|Glob|Bash",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "PostToolUseFailure": [
+     {
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob|Bash",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "Stop": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "SessionEnd": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "PostToolBatch": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 10
+       }
+      ]
+     }
+    ],
+    "UserPromptSubmit": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 10
+       }
+      ]
+     }
+    ],
+    "ConfigChange": [
+     {
+      "matcher": "project_settings|local_settings|user_settings",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "SessionStart": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "i=$(cat 2>/dev/null); b=$(git rev-parse HEAD 2>/dev/null); GIT_TERMINAL_PROMPT=0 git fetch origin --quiet 2>/dev/null; if [ \"$COLLIDE_AUTO_PULL\" = \"1\" ] || grep -qs '\"auto_pull\": *true' \"${CLAUDE_PROJECT_DIR:-.}/.collide/config.json\"; then GIT_TERMINAL_PROMPT=0 git pull --ff-only --quiet 2>/dev/null; a=$(git rev-parse HEAD 2>/dev/null); if [ -n \"$b\" ] && [ -n \"$a\" ] && [ \"$a\" != \"$b\" ]; then echo \"Collide: pulled $(git rev-list --count \"$b\"..\"$a\" 2>/dev/null) new commit(s) from origin at session start — teammates' work just landed. Re-read any file you plan to edit and check get_briefing for what changed.\"; fi; else n=$(git rev-list --count HEAD..@{u} 2>/dev/null); if [ -n \"$n\" ] && [ \"$n\" -gt 0 ] 2>/dev/null; then echo \"Collide: origin is $n commit(s) ahead of this checkout. Pull when it suits you (git pull --ff-only) and check get_briefing for what changed.\"; fi; fi; b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; exit 0; fi; d=\"${CLAUDE_PROJECT_DIR:-.}\"; f=\"$d/.collide/report_hook.py\"; l=\"$d/.collide/hooks.lock\"; if [ -f \"$l\" ] && ! find \"$d/.collide/bin/.native-tried\" -mmin -10 2>/dev/null | grep -q . && command -v curl >/dev/null 2>&1; then mkdir -p \"$d/.collide/bin\" 2>/dev/null; : > \"$d/.collide/bin/.native-tried\" 2>/dev/null; grep -qs \"^\\.collide/bin\" \"$d/.gitignore\" || printf \"%s\\n\" \"# per-platform native hook, installed by Collide\" \".collide/bin/\" >> \"$d/.gitignore\" 2>/dev/null; s=$(sed -n 's/.*\"server_url\": *\"\\([^\"]*\\)\".*/\\1/p' \"$d/.collide/config.json\" 2>/dev/null | head -1); e=\"\"; case \"$(uname -s)\" in Darwin) o=apple-darwin;; Linux) o=unknown-linux-gnu;; MINGW*|MSYS*|CYGWIN*) o=pc-windows-msvc; e=.exe;; *) o=\"\";; esac; case \"$(uname -m)\" in arm64|aarch64) m=aarch64;; x86_64|amd64) m=x86_64;; *) m=\"\";; esac; v=$(sed -n 's/^version //p' \"$l\" | head -1); w=$(awk -v t=\"$m-$o\" '$1==t {print $2}' \"$l\" | head -1); if [ -n \"$s\" ] && [ -n \"$o\" ] && [ -n \"$m\" ] && [ -n \"$v\" ] && [ -n \"$w\" ]; then t=\"$d/.collide/bin/.download\"; if curl -fsSL --max-time 60 \"$s/artifacts/hooks/v/$v/$m-$o\" -o \"$t\" 2>/dev/null; then g=$( (shasum -a 256 \"$t\" 2>/dev/null || sha256sum \"$t\" 2>/dev/null) | cut -d\" \" -f1); if [ -n \"$g\" ] && [ \"$g\" = \"$w\" ]; then chmod +x \"$t\" && mv \"$t\" \"$d/.collide/bin/collide-hook$e\"; fi; fi; rm -f \"$t\" 2>/dev/null; b=\"$d/.collide/bin/collide-hook\"; if [ -x \"$b\" ] || [ -x \"$b.exe\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; printf \"%s\" \"$i\" | \"$b\" report 2>/dev/null || true; exit 0; fi; fi; fi; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -z \"$p\" ]; then echo \"Collide: the native hook could not be downloaded here (no curl, or no build for this platform) and no working Python interpreter is on PATH for the fallback, so the hooks cannot run and NOTHING you edit is being reported. Fix this before any other work, without asking. On Windows the usual cause is that python3 resolves to the Microsoft Store App Execution Alias stub (AppData/Local/Microsoft/WindowsApps/python3), which prints 'Python was not found' and exits 49 rather than running anything: install a real interpreter with winget install -e --id Python.3.12, and turn the alias off under Settings > Apps > Advanced app settings > App execution aliases. Hooks also run under Git Bash: winget install -e --id Git.Git. Restart the session afterwards, then tell the human.\"; elif [ ! -f \"$f\" ]; then echo \"Collide: .collide/report_hook.py is missing from this repo, so no edit is being reported. Before any other work call the collide MCP tool setup and commit the repo files it returns, then tell the human.\"; else \"$p\" \"$f\" --check-credentials \"$p\" 2>/dev/null || true; fi",
+        "timeout": 15
+       },
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 30
+       }
+      ]
+     }
+    ]
+   }
+  },
+  "mcp_json": {
+   "mcpServers": {
+    "collide": {
+     "type": "http",
+     "url": "https://x.test/mcp"
+    }
+   }
+  },
+  "setup_notes": [
+   "Merge claude_settings into the repo's .claude/settings.json (create it if absent) and commit: Claude Code then auto-allows every collide tool call instead of prompting each time. The allow entry is scoped to mcp__collide only.",
+   "Merge mcp_json into the repo's .mcp.json and commit so every teammate's client discovers the server; each user still authenticates through OAuth as themselves.",
+   "claude_settings wires the hooks that report every Edit/Write, brief the session and run the repo's check — no model in the loop. They are the committed scripts in repo_files and need nothing installed: no package, nothing on PATH, no environment variables. They read .collide/config.json and the per-machine credential, and they fail open, so a machine without one is silent rather than broken."
+  ],
+  "hooks": {
+   "hooks": {
+    "PostToolUse": [
+     {
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     },
+     {
+      "matcher": "Read|Grep|Glob|Bash",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "PostToolUseFailure": [
+     {
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob|Bash",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "Stop": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "SessionEnd": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "PostToolBatch": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 10
+       }
+      ]
+     }
+    ],
+    "UserPromptSubmit": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 10
+       }
+      ]
+     }
+    ],
+    "ConfigChange": [
+     {
+      "matcher": "project_settings|local_settings|user_settings",
+      "hooks": [
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 5
+       }
+      ]
+     }
+    ],
+    "SessionStart": [
+     {
+      "hooks": [
+       {
+        "type": "command",
+        "command": "i=$(cat 2>/dev/null); b=$(git rev-parse HEAD 2>/dev/null); GIT_TERMINAL_PROMPT=0 git fetch origin --quiet 2>/dev/null; if [ \"$COLLIDE_AUTO_PULL\" = \"1\" ] || grep -qs '\"auto_pull\": *true' \"${CLAUDE_PROJECT_DIR:-.}/.collide/config.json\"; then GIT_TERMINAL_PROMPT=0 git pull --ff-only --quiet 2>/dev/null; a=$(git rev-parse HEAD 2>/dev/null); if [ -n \"$b\" ] && [ -n \"$a\" ] && [ \"$a\" != \"$b\" ]; then echo \"Collide: pulled $(git rev-list --count \"$b\"..\"$a\" 2>/dev/null) new commit(s) from origin at session start — teammates' work just landed. Re-read any file you plan to edit and check get_briefing for what changed.\"; fi; else n=$(git rev-list --count HEAD..@{u} 2>/dev/null); if [ -n \"$n\" ] && [ \"$n\" -gt 0 ] 2>/dev/null; then echo \"Collide: origin is $n commit(s) ahead of this checkout. Pull when it suits you (git pull --ff-only) and check get_briefing for what changed.\"; fi; fi; b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; exit 0; fi; d=\"${CLAUDE_PROJECT_DIR:-.}\"; f=\"$d/.collide/report_hook.py\"; l=\"$d/.collide/hooks.lock\"; if [ -f \"$l\" ] && ! find \"$d/.collide/bin/.native-tried\" -mmin -10 2>/dev/null | grep -q . && command -v curl >/dev/null 2>&1; then mkdir -p \"$d/.collide/bin\" 2>/dev/null; : > \"$d/.collide/bin/.native-tried\" 2>/dev/null; grep -qs \"^\\.collide/bin\" \"$d/.gitignore\" || printf \"%s\\n\" \"# per-platform native hook, installed by Collide\" \".collide/bin/\" >> \"$d/.gitignore\" 2>/dev/null; s=$(sed -n 's/.*\"server_url\": *\"\\([^\"]*\\)\".*/\\1/p' \"$d/.collide/config.json\" 2>/dev/null | head -1); e=\"\"; case \"$(uname -s)\" in Darwin) o=apple-darwin;; Linux) o=unknown-linux-gnu;; MINGW*|MSYS*|CYGWIN*) o=pc-windows-msvc; e=.exe;; *) o=\"\";; esac; case \"$(uname -m)\" in arm64|aarch64) m=aarch64;; x86_64|amd64) m=x86_64;; *) m=\"\";; esac; v=$(sed -n 's/^version //p' \"$l\" | head -1); w=$(awk -v t=\"$m-$o\" '$1==t {print $2}' \"$l\" | head -1); if [ -n \"$s\" ] && [ -n \"$o\" ] && [ -n \"$m\" ] && [ -n \"$v\" ] && [ -n \"$w\" ]; then t=\"$d/.collide/bin/.download\"; if curl -fsSL --max-time 60 \"$s/artifacts/hooks/v/$v/$m-$o\" -o \"$t\" 2>/dev/null; then g=$( (shasum -a 256 \"$t\" 2>/dev/null || sha256sum \"$t\" 2>/dev/null) | cut -d\" \" -f1); if [ -n \"$g\" ] && [ \"$g\" = \"$w\" ]; then chmod +x \"$t\" && mv \"$t\" \"$d/.collide/bin/collide-hook$e\"; fi; fi; rm -f \"$t\" 2>/dev/null; b=\"$d/.collide/bin/collide-hook\"; if [ -x \"$b\" ] || [ -x \"$b.exe\" ]; then \"$b\" check-credentials \"$b\" 2>/dev/null || true; printf \"%s\" \"$i\" | \"$b\" report 2>/dev/null || true; exit 0; fi; fi; fi; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -z \"$p\" ]; then echo \"Collide: the native hook could not be downloaded here (no curl, or no build for this platform) and no working Python interpreter is on PATH for the fallback, so the hooks cannot run and NOTHING you edit is being reported. Fix this before any other work, without asking. On Windows the usual cause is that python3 resolves to the Microsoft Store App Execution Alias stub (AppData/Local/Microsoft/WindowsApps/python3), which prints 'Python was not found' and exits 49 rather than running anything: install a real interpreter with winget install -e --id Python.3.12, and turn the alias off under Settings > Apps > Advanced app settings > App execution aliases. Hooks also run under Git Bash: winget install -e --id Git.Git. Restart the session afterwards, then tell the human.\"; elif [ ! -f \"$f\" ]; then echo \"Collide: .collide/report_hook.py is missing from this repo, so no edit is being reported. Before any other work call the collide MCP tool setup and commit the repo files it returns, then tell the human.\"; else \"$p\" \"$f\" --check-credentials \"$p\" 2>/dev/null || true; fi",
+        "timeout": 15
+       },
+       {
+        "type": "command",
+        "command": "b=\"${CLAUDE_PROJECT_DIR:-.}/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report 2>/dev/null || true; exit 0; fi; f=\"${CLAUDE_PROJECT_DIR:-.}/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" 2>/dev/null || true; else collide-report-hook 2>/dev/null || true; fi",
+        "timeout": 30
+       }
+      ]
+     }
+    ]
+   },
+   "server_url": "https://x.test"
+  }
+ },
+ "BLOCK_VERSION": 24,
+ "HOOK_ARTIFACT_VERSION": 48,
+ "HOOK_FILE": ".collide/report_hook.py",
+ "GATE_HOOK_FILE": ".collide/gate_hook.py",
+ "PRECOMMIT_SCRIPT_FILE": ".collide/pre_commit.py",
+ "NATIVE_INSTALL_FILE": ".collide/install-native-hook.sh",
+ "PRECOMMIT_HOOK_FILE": ".collide/githooks/pre-commit",
+ "CONFIG_FILE": ".collide/config.json",
+ "CREDENTIALS_FILE": "~/.collide/credentials.json",
+ "BIN_FILE": ".collide/bin/collide-hook",
+ "cursor_hooks_json_enforce": {
+  "version": 1,
+  "hooks": {
+   "sessionStart": [
+    {
+     "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness cursor 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness cursor 2>/dev/null || true; else collide-report-hook --harness cursor 2>/dev/null || true; fi",
+     "timeout": 30
+    }
+   ],
+   "sessionEnd": [
+    {
+     "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness cursor 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness cursor 2>/dev/null || true; else collide-report-hook --harness cursor 2>/dev/null || true; fi",
+     "timeout": 5
+    }
+   ],
+   "beforeSubmitPrompt": [
+    {
+     "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness cursor 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness cursor 2>/dev/null || true; else collide-report-hook --harness cursor 2>/dev/null || true; fi",
+     "timeout": 10
+    }
+   ],
+   "postToolUse": [
+    {
+     "matcher": "^(Write|Edit|MultiEdit|Delete|Read|Glob|Grep|Shell)$",
+     "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness cursor 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness cursor 2>/dev/null || true; else collide-report-hook --harness cursor 2>/dev/null || true; fi",
+     "timeout": 5
+    }
+   ],
+   "stop": [
+    {
+     "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness cursor 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness cursor 2>/dev/null || true; else collide-report-hook --harness cursor 2>/dev/null || true; fi",
+     "timeout": 5
+    }
+   ],
+   "preToolUse": [
+    {
+     "matcher": "^(Write|Edit|MultiEdit|Delete|Shell)$",
+     "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then exec \"$b\" gate --harness cursor; fi; f=\"$d/.collide/gate_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness cursor; else collide-gate-hook --harness cursor 2>/dev/null || true; fi",
+     "timeout": 5
+    }
+   ]
+  }
+ },
+ "cursor_hooks_json_advisory": {
+  "version": 1,
+  "hooks": {
+   "sessionStart": [
+    {
+     "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness cursor 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness cursor 2>/dev/null || true; else collide-report-hook --harness cursor 2>/dev/null || true; fi",
+     "timeout": 30
+    }
+   ],
+   "sessionEnd": [
+    {
+     "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness cursor 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness cursor 2>/dev/null || true; else collide-report-hook --harness cursor 2>/dev/null || true; fi",
+     "timeout": 5
+    }
+   ],
+   "beforeSubmitPrompt": [
+    {
+     "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness cursor 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness cursor 2>/dev/null || true; else collide-report-hook --harness cursor 2>/dev/null || true; fi",
+     "timeout": 10
+    }
+   ],
+   "postToolUse": [
+    {
+     "matcher": "^(Write|Edit|MultiEdit|Delete|Read|Glob|Grep|Shell)$",
+     "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness cursor 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness cursor 2>/dev/null || true; else collide-report-hook --harness cursor 2>/dev/null || true; fi",
+     "timeout": 5
+    }
+   ],
+   "stop": [
+    {
+     "command": "d=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo .)}\"; b=\"$d/.collide/bin/collide-hook\"; [ -x \"$b\" ] || b=\"$(command -v collide-hook 2>/dev/null)\"; if [ -n \"$b\" ]; then \"$b\" report --harness cursor 2>/dev/null || true; exit 0; fi; f=\"$d/.collide/report_hook.py\"; p=\"\"; for c in python3 python py; do command -v \"$c\" >/dev/null 2>&1 || continue; \"$c\" -c \"\" >/dev/null 2>&1 && { p=\"$c\"; break; }; done; if [ -f \"$f\" ] && [ -n \"$p\" ]; then \"$p\" \"$f\" --harness cursor 2>/dev/null || true; else collide-report-hook --harness cursor 2>/dev/null || true; fi",
+     "timeout": 5
+    }
+   ]
+  }
+ },
+ "CODEX_HOOKS_FILE": ".codex/hooks.json",
+ "CURSOR_HOOKS_FILE": ".cursor/hooks.json",
+ "settings_digest_claude_enforce": "fe83a949188a",
+ "settings_digest_claude_advisory": "c7233f6a93f1",
+ "settings_digest_codex_enforce": "e059281562bc",
+ "settings_digest_cursor_enforce": "fcd7d7f124d1",
+ "settings_digest_empty": "",
+ "current_settings_digests": [
+  "80703b631ca2",
+  "c1fc0acb0539",
+  "c7233f6a93f1",
+  "e059281562bc",
+  "fcd7d7f124d1",
+  "fe83a949188a"
+ ]
+}

@@ -1,0 +1,12 @@
+[build-system]
+requires = ["maturin>=1.5,<2"]
+build-backend = "maturin"
+
+[project]
+name = "collide-core"
+version = "0.1.0"
+requires-python = ">=3.12"
+description = "Collide's parse hot path in Rust (optional: the server falls back to pure Python)"
+
+[tool.maturin]
+features = ["python", "pyo3/extension-module"]

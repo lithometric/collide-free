@@ -1,0 +1,119 @@
+#!/bin/sh
+# Collide plugin launcher. Every hook in hooks/hooks.json runs through here:
+# it finds Collide's native program, collide (downloading the build pinned in
+# hooks.lock the first time, and refusing any file whose SHA-256 differs),
+# then hands it the event. It fails open: a hook that cannot run says
+# nothing and never blocks the agent.
+#
+#   collide session-start | report | gate   (hook events, JSON on stdin)
+#   collide login [--server URL]            (connect this repo; opens a browser)
+#   collide status                          (what this repo is connected to)
+
+sub="$1"
+here="$(cd "$(dirname "$0")/.." && pwd)"
+root="${CLAUDE_PLUGIN_ROOT:-$here}"
+proj="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+home="${COLLIDE_HOME:-$HOME}/.collide"
+lock="$root/hooks.lock"
+server="${COLLIDE_SERVER_URL:-https://mcp.collidemcp.com}"
+
+is_event() { case "$sub" in session-start|report|gate) return 0;; esac; return 1; }
+
+# A repo set up the classic way (collide setup) already runs these hooks from
+# its own .claude/settings.json, and a machine installed with the standalone
+# command runs them from ~/.claude/settings.json: two copies would report
+# every edit twice.
+if is_event && grep -qs 'collide-hook' "$proj/.claude/settings.json"; then
+  exit 0
+fi
+if is_event && grep -qs '# collide-machine' "${COLLIDE_HOME:-$HOME}/.claude/settings.json"; then
+  exit 0
+fi
+
+# the program: the one this plugin pinned (the free version's `collide`,
+# the hooks and the local server in one), kept per user, fetched once
+version=$(sed -n 's/^version //p' "$lock" 2>/dev/null | head -1)
+bin="$home/plugin-bin/v$version/collide"
+ext=""
+case "$(uname -s)" in
+  Darwin) os=apple-darwin;;
+  Linux) os=unknown-linux-gnu;;
+  MINGW*|MSYS*|CYGWIN*) os=pc-windows-msvc; ext=.exe;;
+  *) os="";;
+esac
+case "$(uname -m)" in
+  arm64|aarch64) arch=aarch64;;
+  x86_64|amd64) arch=x86_64;;
+  *) arch="";;
+esac
+bin="$bin$ext"
+
+# the pinned file: its lock line ("<target> <sha>"), the download, the digest check
+fetch() {
+  want=$(awk -v t="$arch-$os" '$1==t {print $2}' "$lock" 2>/dev/null | head -1)
+  [ -n "$version" ] && [ -n "$os" ] && [ -n "$arch" ] && [ -n "$want" ] || return 1
+  command -v curl >/dev/null 2>&1 || return 1
+  mkdir -p "$(dirname "$bin")" || return 1
+  tmp="$bin.download.$$"
+  curl -fsSL --max-time 120 "$server/artifacts/free/v/$version/$arch-$os" -o "$tmp" 2>/dev/null || { rm -f "$tmp"; return 1; }
+  got=$( (shasum -a 256 "$tmp" 2>/dev/null || sha256sum "$tmp" 2>/dev/null) | cut -d' ' -f1)
+  if [ -z "$got" ] || [ "$got" != "$want" ]; then rm -f "$tmp"; return 1; fi
+  chmod +x "$tmp" && mv "$tmp" "$bin"
+}
+
+# the free version: Collide for every repo on this machine, set up once.
+# The plugin brings the hooks, so nothing is written into
+# ~/.claude/settings.json.
+ensure_machine() {
+  [ -f "$home/machine.json" ] && return 0
+  "$bin" install --no-settings >/dev/null 2>&1
+}
+
+if [ ! -x "$bin" ]; then
+  if ! fetch; then
+    if is_event; then
+      [ "$sub" = "session-start" ] && echo "Collide plugin: Collide could not be downloaded for this machine ($arch-$os), so it is off in this session. Tell the user; it retries next session."
+      exit 0
+    fi
+    echo "Collide: could not download Collide for $arch-$os from $server. Check your connection and try again." >&2
+    exit 1
+  fi
+fi
+
+case "$sub" in
+  session-start)
+    # a repo connected on its own keeps its connection; any other repo is
+    # covered by this machine's free version, set up here the first time
+    if [ ! -f "$proj/.collide/config.json" ] && ! ensure_machine; then
+      echo "Collide plugin: the free version could not be set up on this machine ($arch-$os), so Collide is off in this session. Tell the user; it retries next session."
+      exit 0
+    fi
+    # the session briefing, and the first index of the tree
+    exec "$bin" report
+    ;;
+  report|gate)
+    [ -f "$proj/.collide/config.json" ] || [ -f "$home/machine.json" ] || exit 0
+    exec "$bin" "$sub"
+    ;;
+  login)
+    shift
+    exec "$bin" login "$@"
+    ;;
+  status)
+    if [ ! -f "$proj/.collide/config.json" ]; then
+      exec "$bin" status
+    fi
+    echo "Repository config ($proj/.collide/config.json):"
+    cat "$proj/.collide/config.json"
+    if [ -f "$home/credentials.json" ] && grep -qs "$(sed -n 's/.*"server_url": *"\([^"]*\)".*/\1/p' "$proj/.collide/config.json" | head -1)" "$home/credentials.json"; then
+      echo "Credential: present for that server."
+    else
+      echo "Credential: missing on this machine. Run /collide:login."
+    fi
+    "$bin" --version
+    ;;
+  *)
+    echo "usage: collide <login|status>" >&2
+    exit 2
+    ;;
+esac

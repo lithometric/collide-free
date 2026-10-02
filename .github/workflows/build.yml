@@ -1,0 +1,30 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            hooks
+            free
+      - name: Test the hooks
+        working-directory: hooks
+        run: cargo test --release
+      - name: Build collide
+        working-directory: free
+        run: cargo build --release
+      - name: Test the engine
+        working-directory: free
+        run: cargo test --release

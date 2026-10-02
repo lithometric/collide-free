@@ -1,0 +1,6 @@
+#!/bin/sh
+# Collide pre-commit gate — blocks a commit that lands on an in-flight
+# collision. Universal: fires for any agent and any human. Fail-open.
+root="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
+f="$root/.collide/pre_commit.py"
+if [ -f "$f" ]; then exec python3 "$f"; else exec collide-pre-commit; fi
