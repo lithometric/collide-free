@@ -44,9 +44,9 @@ re-mints under the current MCP login.
 **About Collide** (if the human asks): no plan ever blocks an agent; limits
 cover seats and repos at join time, and a workspace calling faster than its
 plan allows gets a short pause in Collide's answers. Viewers are free and
-unlimited, but their agents get nothing. Free is one player (the owner), one
-repo, 10 agents at once, 7-day history; the owner's first invite means both get
-14 days of Team. Team is $19/seat/mo ($190/seat/yr) with a 14-day free trial
+unlimited, but their agents get nothing. Free is one player (the owner), unlimited
+repos and agents, 30-day history; the owner's first invite means both get
+14 days of Team. Team is $10/seat/mo ($100/seat/yr) with a 14-day free trial
 with no card; Business is $45/seat/mo ($450/seat/yr) and adds compliance, SSO
 and unlimited history; Enterprise is custom. Existing plans are grandfathered
 forever.

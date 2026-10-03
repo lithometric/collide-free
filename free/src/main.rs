@@ -606,7 +606,7 @@ async fn presence_endpoint(
             via: &via,
         },
     );
-    local::attach_inbox(&app.store, &scope, &user_id, &mut answer);
+    local::attach_inbox(&app.store, &scope, &user_id, &text(&body, "session"), &mut answer);
     Json(answer)
 }
 
@@ -1013,11 +1013,17 @@ async fn brief_endpoint(
         // a repo indexed moments ago is still being embedded: the first
         // prompt of a session arrives in the same second as its index, and
         // matched names only. A short wait gets it the meaning match.
-        let waited = std::time::Instant::now();
-        while crate::embed::pending_for(&caller.scope) > 0 && waited.elapsed() < std::time::Duration::from_millis(2500) {
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        }
-        let (meant, shown) = crate::embed::prompt_identifiers(&app.store, &caller.scope, &prompt, 6, Some((&caller.user_id, &session)));
+        // matching by meaning (the embedding model) is Team and up; Free
+        // matches the names a prompt uses
+        let (meant, shown) = if plan.flag("meaning_match", true) {
+            let waited = std::time::Instant::now();
+            while crate::embed::pending_for(&caller.scope) > 0 && waited.elapsed() < std::time::Duration::from_millis(2500) {
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            }
+            crate::embed::prompt_identifiers(&app.store, &caller.scope, &prompt, 6, Some((&caller.user_id, &session)))
+        } else {
+            (Vec::new(), Vec::new())
+        };
         // a conversation, not a task: no briefing (the agent is still marked working above)
         let closest = shown.first().and_then(|h| h.get("score")).and_then(Value::as_f64).unwrap_or(0.0);
         if !crate::brief::about_the_code(&prompt, names_code, closest >= QUESTION_MEANING_FLOOR) {
@@ -1049,10 +1055,11 @@ async fn brief_endpoint(
     if !prompt.trim().is_empty() {
         let overlap = crate::overlap::announce(&app.store, &caller.scope, &caller.user_id, &session, &named_for_overlap, &by_meaning);
         let adds = crate::brief::adds_code(&prompt);
-        let reuse = if adds { crate::embed::reuse_candidates(&app.store, &caller.scope, &prompt, 3) } else { Vec::new() };
+        let meaning = plan.flag("meaning_match", true);
+        let reuse = if adds && meaning { crate::embed::reuse_candidates(&app.store, &caller.scope, &prompt, 3) } else { Vec::new() };
         // a worked example: a finished, tested task like this one. A live
         // teammate in the same code comes first, and then there is none
-        let task_q = crate::embed::query_vector(&crate::examples::task_text(&prompt)).unwrap_or_default();
+        let task_q = if meaning { crate::embed::query_vector(&crate::examples::task_text(&prompt)).unwrap_or_default() } else { Vec::new() };
         crate::examples::start_task(&app.store, &caller.scope, &caller.user_id, &session, &task_q, adds);
         let example = if adds && overlap.is_none() && examples_on() {
             let mut points_at: BTreeSet<String> = BTreeSet::new();
@@ -1105,10 +1112,10 @@ async fn brief_endpoint(
     // hooks never saw one), each once per session; and the numbers others
     // have claimed, whenever there is a briefing to put them in
     let mut extra: Vec<String> = Vec::new();
-    if local::active() {
-        if let Some(note) = local::inbox_note(&app.store, &caller.scope, &caller.user_id) {
-            extra.push(note);
-        }
+    let mut own = json!({});
+    local::attach_inbox(&app.store, &caller.scope, &caller.user_id, &session, &mut own);
+    if let Some(note) = own.get("inbox_note").and_then(Value::as_str) {
+        extra.push(note.to_string());
     }
     let inbox = if local::active() {
         json!({"messages": []})
@@ -1422,7 +1429,7 @@ async fn observe_endpoint(
             map.insert("presence".into(), presence);
         }
     }
-    local::attach_inbox(&app.store, &caller.scope, &caller.user_id, &mut response);
+    local::attach_inbox(&app.store, &caller.scope, &caller.user_id, &text(&body, "session"), &mut response);
     Json(response)
 }
 
@@ -1533,7 +1540,7 @@ async fn report_endpoint(
         },
         response,
     );
-    local::attach_inbox(&app.store, &scope, &user_id, &mut answer);
+    local::attach_inbox(&app.store, &scope, &user_id, &text(&body, "session"), &mut answer);
     Json(answer)
 }
 

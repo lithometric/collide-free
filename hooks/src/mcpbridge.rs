@@ -5,6 +5,10 @@
 //! it is not running, and a server that restarted (an update replaces it)
 //! gets a fresh session, opened the way the agent opened the first.
 //!
+//! In a repo that works with a team the same relay talks to Collide's cloud
+//! instead, with the credential the machine already holds: one sign-in
+//! (`collide login`, or the code `setup` hands out) covers hooks and tools.
+//!
 //! A relay, not a request/response loop: every message the agent sends is
 //! posted at once on its own thread, and every event the server streams
 //! back is written the moment it arrives. A server may ask the client
@@ -36,6 +40,9 @@ enum Sent {
 
 struct Relay {
     env: Env,
+    /// Collide's cloud, with this machine's own credential, when the repo
+    /// (or the machine) works with a team; None: the local server
+    cloud: Option<(String, String)>,
     out: Mutex<std::io::Stdout>,
     session: Mutex<String>,
     /// how the agent opened its session, replayed when it is reopened
@@ -78,7 +85,7 @@ impl Relay {
     /// Post one message. Each event the server streams back is written as
     /// it arrives (unless `quiet`); `id` is the answer to wait for.
     fn send(&self, body: &str, id: Option<&Value>, quiet: bool) -> Sent {
-        let (base, token) = local_endpoint(&self.env);
+        let (base, token) = self.cloud.clone().unwrap_or_else(|| local_endpoint(&self.env));
         let session = self.session();
         let mut request = ureq::AgentBuilder::new()
             .timeout(ANSWER_WITHIN)
@@ -145,7 +152,9 @@ impl Relay {
         if let Ok(mut s) = self.session.lock() {
             s.clear();
         }
-        ensure_local(&self.env, Duration::from_secs(8));
+        if self.cloud.is_none() {
+            ensure_local(&self.env, Duration::from_secs(8));
+        }
         let opening = self.opening.lock().map(|o| o.clone()).unwrap_or_default();
         for earlier in opening {
             let id = serde_json::from_str::<Value>(&earlier).ok().and_then(|m| m.get("id").cloned());
@@ -170,7 +179,9 @@ impl Relay {
         let mut sent = self.send(line, wanted, false);
         if matches!(sent, Sent::Gone) && method != "notifications/initialized" {
             if method == "initialize" {
-                ensure_local(&self.env, Duration::from_secs(8));
+                if self.cloud.is_none() {
+                    ensure_local(&self.env, Duration::from_secs(8));
+                }
             } else {
                 let stale = self.session();
                 self.reopen(&stale);
@@ -188,10 +199,33 @@ impl Relay {
     }
 }
 
+/// Where this session's MCP tools live: a repo (or a machine) that works
+/// with a team talks to Collide's cloud with the credential the machine
+/// already holds, so connecting the tools needs no sign-in of its own;
+/// everything else talks to the local server.
+fn cloud_target(env: &Env) -> Option<(String, String)> {
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let project = crate::config::get(env, "CLAUDE_PROJECT_DIR");
+    let project = (!project.is_empty()).then(|| std::path::PathBuf::from(project));
+    if let Some(root) = crate::config::find_repo_root(&[Some(cwd), project]) {
+        let cfg = crate::config::config(Some(&root), env);
+        if cfg.usable() && !cfg.machine_local {
+            return Some((cfg.server.trim_end_matches('/').to_string(), cfg.token));
+        }
+        return None;
+    }
+    // outside any repo: the machine's own mode
+    crate::machine::cloud_account(env)
+}
+
 pub fn run(env: &Env) -> i32 {
-    ensure_local(env, Duration::from_secs(8));
+    let cloud = cloud_target(env);
+    if cloud.is_none() {
+        ensure_local(env, Duration::from_secs(8));
+    }
     let relay = Arc::new(Relay {
         env: env.clone(),
+        cloud,
         out: Mutex::new(std::io::stdout()),
         session: Mutex::new(String::new()),
         opening: Mutex::new(Vec::new()),

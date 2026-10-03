@@ -992,7 +992,7 @@ impl CollideMcp {
         // half sees the same sentences ride along the same calls.
         let mut value = value;
         let tool = request.name.as_ref();
-        let advisory = crate::advisory::Advisory { dashboard_url: self.app.dashboard_url.clone() };
+        let advisory = crate::advisory::Advisory { dashboard_url: self.app.dashboard_url.clone(), public_url: self.app.public_url.clone() };
         if crate::advisory::wants_hint(tool) {
             crate::advisory::apply_hint(store, &caller, &repo_id, &mut value);
         }

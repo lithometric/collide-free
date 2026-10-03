@@ -16,7 +16,7 @@ use crate::store::{now, Store};
 
 /// Kept in step with `blocks.py`. A mismatch here means an agent is told to
 /// upgrade something that is already current, or not told when it is stale.
-pub const HOOK_ARTIFACT_VERSION: i64 = 49;
+pub const HOOK_ARTIFACT_VERSION: i64 = 51;
 pub const BLOCK_VERSION: i64 = 24;
 
 pub const ARTIFACTS_OUTDATED: &str =

@@ -20,7 +20,7 @@ use crate::http;
 use crate::shell;
 use crate::transcript;
 
-pub const HOOK_VERSION: u32 = 49; // must match blocks.HOOK_ARTIFACT_VERSION
+pub const HOOK_VERSION: u32 = 51; // must match blocks.HOOK_ARTIFACT_VERSION
 pub const TOTAL_BUDGET: Duration = Duration::from_millis(500);
 const MAX_FILE_BYTES: u64 = 512 * 1024;
 
@@ -1061,13 +1061,9 @@ fn run_session_start(hook_input: &Value, env: &Env) -> i32 {
     let mut said: Vec<String> = moved.into_iter().collect();
     // the free version: the other agents are on this machine, and the way
     // to reach them is a command (the MCP tools may not be connected)
+    crate::machine::mark_welcomed(&text(hook_input, "session_id"), env);
     if cfg.machine_local && !RESUME_SOURCES.contains(&text(hook_input, "source").as_str()) {
-        said.push(format!(
-            "Collide (free, on this machine): other agents working in this repo on this machine see your edits as you make them, \
-and you see theirs. To tell them something, run: {} \"...\" (add --to agent-xxxx for one agent, \
-or --about path.py::symbol for whoever is on that code).",
-            crate::machine::message_command(env)
-        ));
+        said.push(crate::machine::free_note(env));
     }
     // a repo covered through this machine's install: the agent may offer
     // the user Collide's AGENTS.md section (it never writes it unasked)
@@ -1236,6 +1232,9 @@ fn run_event(stdin_data: &str, env: &Env) -> i32 {
         // a free machine whose workspace just went paid (`collide upgrade`)
         // moves over at the next prompt, not only at the next session
         let moved = crate::machine::plan_check(env);
+        // a session already open when Collide was installed hears it now, once
+        let notes: Vec<String> = moved.into_iter().chain(crate::machine::welcome_once(&hook_input, env)).collect();
+        let moved = (!notes.is_empty()).then(|| notes.join("\n\n"));
         let code = crate::prompt::run_user_prompt(&hook_input, env);
         // plain text joins the briefing; a JSON harness gets one object per
         // event, so it hears at its next session start instead

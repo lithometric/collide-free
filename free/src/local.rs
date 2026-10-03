@@ -223,6 +223,18 @@ pub fn bootstrap(store: &Store) -> String {
 /// taken off its queue: an agent on this machine is told once. `None` when
 /// nothing is waiting.
 pub fn inbox_note(store: &Store, scope: &str, user_id: &str) -> Option<String> {
+    inbox_note_as(store, scope, user_id, "Messages for you from the other agents on this machine. Act on them, and say so to the user; to answer one, use \
+the collide message command from your session's start, with --to <sender>.")
+}
+
+/// The inbox key for one session of a person. On a team a message goes to a
+/// person, whichever session reads first; a person's own sessions have no
+/// other way to tell each other apart.
+pub fn session_inbox(user: &str, session: &str) -> String {
+    format!("{user}#{session}")
+}
+
+fn inbox_note_as(store: &Store, scope: &str, user_id: &str, heading: &str) -> Option<String> {
     let none = std::collections::BTreeSet::new();
     let inbox = crate::agenttools::inbox_ack(store, scope, user_id, &none, &[]);
     let messages: Vec<Value> = inbox.get("messages").and_then(Value::as_array).cloned().unwrap_or_default();
@@ -232,21 +244,23 @@ pub fn inbox_note(store: &Store, scope: &str, user_id: &str) -> Option<String> {
     let ids: Vec<String> = messages.iter().filter_map(|m| m.get("id").and_then(Value::as_str).map(str::to_string)).collect();
     let lines: Vec<String> = messages.iter().map(crate::agenttools::message_line).collect();
     let _ = crate::agenttools::inbox_ack(store, scope, user_id, &none, &ids);
-    Some(format!(
-        "Messages for you from the other agents on this machine. Act on them, and say so to the user; to answer one, use \
-the collide message command from your session's start, with --to <sender>.\n{}",
-        lines.join("\n")
-    ))
+    Some(format!("{heading}\n{}", lines.join("\n")))
 }
 
 /// Put this agent's waiting messages on a hook response, so an agent deep
 /// in a long task hears them on its next edit or read, not only its next
 /// prompt.
-pub fn attach_inbox(store: &Store, scope: &str, user_id: &str, response: &mut Value) {
-    if !active() {
-        return;
-    }
-    if let (Some(note), Some(map)) = (inbox_note(store, scope, user_id), response.as_object_mut()) {
+pub fn attach_inbox(store: &Store, scope: &str, user_id: &str, session: &str, response: &mut Value) {
+    let note = if active() {
+        inbox_note(store, scope, user_id)
+    } else if !session.is_empty() {
+        // on a team: what this person's other sessions sent this one
+        inbox_note_as(store, scope, &session_inbox(user_id, session), "Messages for you from your other sessions in this repo. \
+Act on them, and say so to the user; to answer one, run the collide message command with --to <sender>.")
+    } else {
+        None
+    };
+    if let (Some(note), Some(map)) = (note, response.as_object_mut()) {
         map.insert("inbox_note".into(), json!(note));
     }
 }
@@ -271,12 +285,25 @@ pub fn send(store: &Store, scope: &str, repo_id: &str, workspace: &str, from: &s
     let visible = std::collections::BTreeSet::new();
     let view = crate::activity::list_activity(store, scope, repo_id, idle_after_s, &visible);
     let mut sent_to: Vec<String> = Vec::new();
+    // on a team the sender's own other sessions count too, each addressed on
+    // its own (here every session already is its own agent)
+    let own_session = text("session");
+    let signed = if !active() && !own_session.is_empty() { session_inbox(from, &own_session) } else { from.to_string() };
     for row in view.get("workspaces").and_then(Value::as_array).into_iter().flatten() {
         let user = row.get("user").and_then(Value::as_str).unwrap_or("").to_string();
+        let session = row.get("session").and_then(Value::as_str).unwrap_or("").to_string();
         let online = row.get("online").and_then(Value::as_bool).unwrap_or(false);
-        if online && !user.is_empty() && user != from && !sent_to.contains(&user) {
-            crate::agenttools::send_agent_message(store, scope, from, &user, &message, "collide-hook");
-            sent_to.push(user);
+        let to = if user == from {
+            if active() || session.is_empty() || session == own_session {
+                continue;
+            }
+            session_inbox(&user, &session)
+        } else {
+            user
+        };
+        if online && !to.is_empty() && !sent_to.contains(&to) {
+            crate::agenttools::send_agent_message(store, scope, &signed, &to, &message, "collide-hook");
+            sent_to.push(to);
         }
     }
     if sent_to.is_empty() {

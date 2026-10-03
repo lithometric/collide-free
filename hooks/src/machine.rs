@@ -124,6 +124,20 @@ fn text(value: &Value, key: &str) -> String {
     value.get(key).and_then(Value::as_str).unwrap_or("").to_string()
 }
 
+/// A machine working with its team: the cloud's address and this machine's
+/// credential for it. None on a free (local) machine.
+pub fn cloud_account(env: &Env) -> Option<(String, String)> {
+    let machine = settings(env);
+    if text(&machine, "mode") != "cloud" {
+        return None;
+    }
+    let account = machine.get("account")?;
+    let server = text(account, "server_url").trim_end_matches('/').to_string();
+    let creds = config::load_json(&config::credentials_path(env));
+    let token = config::resolve_token(&creds, &server, &text(account, "workspace"));
+    (!server.is_empty() && !token.is_empty()).then_some((server, token))
+}
+
 /// The local server's address and key, as its files say.
 pub fn local_endpoint(env: &Env) -> (String, String) {
     let dir = local_dir(env);
@@ -804,11 +818,27 @@ pub fn install(args: &[String], env: &Env) -> i32 {
         return 0;
     }
     let (base, _) = local_endpoint(env);
-    println!("Collide is installed for every repo on this machine.");
-    println!("  hooks:  {}", covered.join(", "));
-    println!("  server: {} ({})", base, if running { "running" } else { "starts with the next session" });
-    println!("  data:   {} (stays on this machine)", local_dir(env).display());
-    println!("Start or restart your agent sessions; agents in the same repo now see each other's work and messages.");
+    // run by the install script, which prints the banner and what to do next
+    let styled = config::get(env, "COLLIDE_STYLE") == "1";
+    if styled {
+        let paint = Paint::new(env);
+        let tools: Vec<String> = covered.iter().map(|c| c.split(" (").next().unwrap_or(c).to_string()).collect();
+        let host = base.trim_start_matches("http://");
+        println!("  {} Installed for every repo on this machine", paint.mint("✓"));
+        println!("    {}   {}", paint.dim("hooks "), paint.bold(&tools.join(", ")));
+        if tools.iter().any(|t| t == "Codex") {
+            println!("    {}   {}", paint.dim("      "), paint.dim("open Claude Code sessions pick it up now; start a new Codex session"));
+        }
+        println!("    {}   {} {}", paint.dim("server"), host,
+            paint.dim(if running { "· running" } else { "· starts with your next session" }));
+        println!("    {}   {} {}", paint.dim("data  "), tilde(&local_dir(env), env), paint.dim("· stays on this machine"));
+    } else {
+        println!("Collide is installed for every repo on this machine.");
+        println!("  hooks:  {}", covered.join(", "));
+        println!("  server: {} ({})", base, if running { "running" } else { "starts with the next session" });
+        println!("  data:   {} (stays on this machine)", local_dir(env).display());
+        println!("Start or restart your agent sessions; agents in the same repo now see each other's work and messages.");
+    }
     // installed from `setup`: the code links this machine to that account
     let code = arg("--claim");
     let server = arg("--server");
@@ -832,8 +862,45 @@ pub fn install(args: &[String], env: &Env) -> i32 {
             if why.is_empty() { String::new() } else { format!(" ({why})") });
         return 0;
     }
-    println!("To bring in your team: ~/.collide/bin/collide upgrade");
+    if !styled {
+        println!("To bring in your team: ~/.collide/bin/collide upgrade");
+    }
     0
+}
+
+/// Color for a person at a terminal: the site's mint for what matters, dim
+/// for labels. Off when output is piped or NO_COLOR is set.
+struct Paint {
+    on: bool,
+}
+
+impl Paint {
+    fn new(env: &Env) -> Self {
+        use std::io::IsTerminal;
+        Paint { on: std::io::stdout().is_terminal() && config::get(env, "NO_COLOR").is_empty() }
+    }
+    fn wrap(&self, code: &str, text: &str) -> String {
+        if self.on { format!("\x1b[{code}m{text}\x1b[0m") } else { text.to_string() }
+    }
+    fn mint(&self, text: &str) -> String {
+        self.wrap("38;2;52;211;153", text)
+    }
+    fn dim(&self, text: &str) -> String {
+        self.wrap("2", text)
+    }
+    fn bold(&self, text: &str) -> String {
+        self.wrap("1", text)
+    }
+}
+
+/// A path under the home folder, written the short way (`~/.collide/local`).
+fn tilde(path: &Path, env: &Env) -> String {
+    let home = config::get(env, "HOME");
+    let shown = path.display().to_string();
+    match shown.strip_prefix(home) {
+        Some(rest) if !home.is_empty() => format!("~{rest}"),
+        _ => shown,
+    }
 }
 
 /// `collide uninstall`: take the machine hooks out. The local data stays.
@@ -923,6 +990,71 @@ mod tests {
         let _ = std::fs::remove_dir_all(&base);
     }
 
+    /// A stand-in cloud that answers /machine/status with `paid`, once per request.
+    fn status_server(paid: bool) -> String {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let mut stream = stream;
+                // the whole request (headers, then the body they announce) before answering
+                let mut got: Vec<u8> = Vec::new();
+                let mut buffer = [0u8; 8192];
+                loop {
+                    let Ok(n) = stream.read(&mut buffer) else { break };
+                    if n == 0 {
+                        break;
+                    }
+                    got.extend_from_slice(&buffer[..n]);
+                    let text = String::from_utf8_lossy(&got).to_string();
+                    if let Some(end) = text.find("\r\n\r\n") {
+                        let length: usize = text[..end].lines()
+                            .find_map(|l| l.to_ascii_lowercase().strip_prefix("content-length:").map(|v| v.trim().parse().unwrap_or(0)))
+                            .unwrap_or(0);
+                        if got.len() >= end + 4 + length {
+                            break;
+                        }
+                    }
+                }
+                let body = json!({"ok": true, "paid": paid, "plan": if paid { "team" } else { "free" }}).to_string();
+                let _ = write!(stream, "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len());
+            }
+        });
+        base
+    }
+
+    #[test]
+    fn a_lapsed_plan_puts_the_machine_back_on_the_free_version_and_a_renewal_brings_it_back() {
+        let home = std::env::temp_dir().join(format!("collide-lapse-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        let mut env = Env::new();
+        env.insert("HOME".into(), home.to_string_lossy().to_string());
+        env.insert("COLLIDE_HOME".into(), home.to_string_lossy().to_string());
+        let machine = |server: &str, mode: &str| {
+            json!({"mode": mode, "server_url": server, "workspace": "w1",
+                   "account": {"user": "a@x", "workspace": "w1", "workspace_name": "Acme", "server_url": server, "checked": 0.0}})
+        };
+        let ended = status_server(false);
+        std::fs::create_dir_all(home.join(".collide")).unwrap();
+        std::fs::write(config::credentials_path(&env), json!({format!("{ended}#w1"): "cat_x"}).to_string()).unwrap();
+        assert!(save_settings(&env, &machine(&ended, "cloud")));
+        let told = plan_check(&env).expect("the lapse is told");
+        assert!(told.contains("Acme's team plan has ended") && told.contains("Collide Free"), "{told}");
+        assert_eq!(text(&settings(&env), "mode"), "local");
+        assert!(settings(&env).get("account").is_some(), "the account is kept for a renewal");
+        assert!(plan_check(&env).is_none(), "checked: not again for 15 minutes");
+
+        // renewed: the same machine goes back to the team at its next check
+        let renewed = status_server(true);
+        std::fs::write(config::credentials_path(&env), json!({format!("{renewed}#w1"): "cat_x"}).to_string()).unwrap();
+        assert!(save_settings(&env, &machine(&renewed, "local")));
+        let renewal = plan_check(&env);
+        assert!(renewal.as_deref().unwrap_or("").contains("Acme is on Team now"), "{renewal:?} {}", settings(&env));
+        assert_eq!(text(&settings(&env), "mode"), "cloud");
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
     #[test]
     fn only_a_hosted_remote_is_a_repo_a_team_can_share() {
         for shared in ["github.com/acme/api", "gitlab.com/group/sub/app", "git.acme.io/team/app"] {
@@ -960,6 +1092,77 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         assert_eq!(repo_id_for(&dir), "local/my-app");
     }
+}
+
+// ------------------------------------------------------------ welcome
+
+/// What an agent in a repo on the free version is told when its session
+/// starts: the others are on this machine, and how to reach them.
+pub fn free_note(env: &Env) -> String {
+    format!(
+        "Collide (free, on this machine): other agents working in this repo on this machine see your edits as you make them, \
+and you see theirs. To tell them something, run: {} \"...\" (add --to agent-xxxx for one agent, \
+or --about path.py::symbol for whoever is on that code).",
+        message_command(env)
+    )
+}
+
+fn welcomed_path(session: &str, env: &Env) -> Option<PathBuf> {
+    let name: String = session.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').take(64).collect();
+    (!name.is_empty()).then(|| local_dir(env).join("welcomed").join(name))
+}
+
+/// A session that started with Collide's session start has heard what it is.
+pub fn mark_welcomed(session: &str, env: &Env) {
+    if !installed(env) {
+        return;
+    }
+    let Some(path) = welcomed_path(session, env) else { return };
+    let dir = path.parent().unwrap_or(Path::new(".")).to_path_buf();
+    let _ = std::fs::create_dir_all(&dir);
+    let _ = std::fs::write(&path, "1");
+    // a week on, no session still needs its marker
+    let week = Duration::from_secs(7 * 86_400);
+    for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+        let old = entry.metadata().ok().and_then(|m| m.modified().ok()).and_then(|t| t.elapsed().ok()).is_some_and(|age| age > week);
+        if old {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+}
+
+/// A session already open when Collide was installed missed that start:
+/// Claude Code picks the new hooks up mid-session, so its next prompt is
+/// told, once, that Collide is on and what changes.
+pub fn welcome_once(hook_input: &Value, env: &Env) -> Option<String> {
+    if !installed(env) {
+        return None;
+    }
+    let path = welcomed_path(&text(hook_input, "session_id"), env)?;
+    if path.exists() {
+        return None;
+    }
+    let cwd = {
+        let given = text(hook_input, "cwd");
+        if given.is_empty() { std::env::current_dir().unwrap_or_default() } else { PathBuf::from(given) }
+    };
+    let root = config::find_repo_root(&[Some(cwd)])?;
+    if repo_runs_its_own(&root) {
+        return None; // its own hooks greeted it at its start
+    }
+    let cfg = config::config(Some(&root), env);
+    if !cfg.usable() {
+        return None;
+    }
+    mark_welcomed(&text(hook_input, "session_id"), env);
+    Some(if cfg.machine_local {
+        format!("Collide was just installed on this machine and is on for this session from now on. {}", free_note(env))
+    } else {
+        "Collide was just installed on this machine and is on for this session from now on: your edits reach your team's \
+workspace as you make them, briefings arrive with your prompts, and the write gate checks every edit against teammates' \
+live work. Tell the user this in one line."
+            .to_string()
+    })
 }
 
 // ------------------------------------------------------------ agent messages
@@ -1407,6 +1610,16 @@ fn switch_to_cloud(env: &Env, account: &Value) {
     save_settings(env, &machine);
 }
 
+/// The plan ended: this machine works on its own again, the account kept so
+/// a renewal brings it straight back.
+fn switch_to_local(env: &Env) {
+    let mut machine = settings(env);
+    if let Some(map) = machine.as_object_mut() {
+        map.insert("mode".into(), json!("local"));
+    }
+    save_settings(env, &machine);
+}
+
 /// `collide login` on a machine with Collide installed: sign in, record
 /// the machine on the account, and either stay local (a Free workspace) or
 /// move to Collide's servers and sync (a paid one).
@@ -1550,7 +1763,8 @@ pub fn sync(env: &Env) -> i32 {
 /// the line to tell them, once.
 pub fn plan_check(env: &Env) -> Option<String> {
     let mut machine = settings(env);
-    if text(&machine, "mode") != "local" {
+    let mode = text(&machine, "mode");
+    if mode != "local" && mode != "cloud" {
         return None;
     }
     let account = machine.get("account").cloned()?;
@@ -1566,9 +1780,32 @@ pub fn plan_check(env: &Env) -> Option<String> {
     if server.is_empty() || token.is_empty() {
         return None;
     }
-    let answer = crate::http::post(&server, "/machine/status", &token, &crate::report::user_agent(), &machine_body(env), Duration::from_millis(1500))
+    // no answer (offline, the cloud down): nothing changes until the next check
+    // a machine on the cloud has no local record to count: no local server for it
+    let body = if mode == "cloud" {
+        json!({"machine": machine_id(env), "name": machine_name(env), "os": std::env::consts::OS})
+    } else {
+        machine_body(env)
+    };
+    let answer = crate::http::post(&server, "/machine/status", &token, &crate::report::user_agent(), &body, Duration::from_millis(1500))
         .ok()?;
-    if answer.get("paid").and_then(Value::as_bool) != Some(true) {
+    let paid = answer.get("paid").and_then(Value::as_bool) == Some(true);
+    let name = {
+        let named = text(&account, "workspace_name");
+        if named.is_empty() { "your workspace".to_string() } else { named }
+    };
+    if mode == "cloud" {
+        if paid {
+            return None;
+        }
+        // the plan ended: the free version carries on, so no agent stops working
+        switch_to_local(env);
+        return Some(format!(
+            "Collide: {name}'s team plan has ended, so this machine is back on Collide Free: agents here still see each \
+other's work and message each other, but not teammates' machines. Renewing reconnects it by itself. Tell the user this in one line."
+        ));
+    }
+    if !paid {
         return None;
     }
     switch_to_cloud(env, &account);
@@ -1583,10 +1820,6 @@ pub fn plan_check(env: &Env) -> Option<String> {
         }
         let _ = command.spawn();
     }
-    let name = {
-        let named = text(&account, "workspace_name");
-        if named.is_empty() { "your workspace".to_string() } else { named }
-    };
     Some(format!(
         "Collide: {name} is on Team now, so this machine has switched to your team's workspace and is syncing its local history there. \
 From this session on, agents on your teammates' machines see this one's work too. Tell the user this in one line."
