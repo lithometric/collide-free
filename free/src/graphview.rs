@@ -2767,7 +2767,15 @@ pub fn blast_radius_view(
     let mut out_levels: Vec<Value> = Vec::new();
     for (index, level) in levels.into_iter().enumerate() {
         total += level.len();
-        let decorated = decorate(level, overlays);
+        let mut decorated = decorate(level, overlays);
+        // each node's `scope` (every name its module defines, ~100 for a big
+        // file) serves recipe replay, not the agent asking what depends on
+        // this: repeated per dependent it made a short answer 30K characters
+        for entry in decorated.iter_mut() {
+            if let Some(map) = entry.as_object_mut() {
+                map.remove("scope");
+            }
+        }
         for entry in &decorated {
             if let Some(owner) = entry.get("owner").and_then(Value::as_str) {
                 if !owner.is_empty() {

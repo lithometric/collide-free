@@ -590,3 +590,30 @@ on GitHub (or have the owner reconnect), then retry."
     }
     Access::Allowed
 }
+
+/// What a viewer does not get: the code an edit changed, the signatures
+/// before and after, the notes, rationales and recipes agents left. With
+/// those, a viewer could hand a teammate's work to an agent of their own;
+/// without them the dashboard still shows who is on what, the collisions
+/// and what Collide saved.
+const VIEWER_HIDDEN: &[&str] = &[
+    "hunks", "signature", "signature_before", "signature_after", "signature_change", "detail", "before", "after",
+    "fact", "note", "notes", "rationale", "rationales", "latest", "recipe", "recipes", "conventions",
+    "convention_drift", "snippet", "code", "content",
+];
+
+pub fn redact_for_viewer(value: &mut Value) {
+    match value {
+        Value::Object(map) => {
+            for key in VIEWER_HIDDEN {
+                map.remove(*key);
+            }
+            // a changed symbol's before/after went with the keys above; its name stays
+            for (_, inner) in map.iter_mut() {
+                redact_for_viewer(inner);
+            }
+        }
+        Value::Array(items) => items.iter_mut().for_each(redact_for_viewer),
+        _ => {}
+    }
+}

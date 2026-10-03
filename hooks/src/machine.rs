@@ -735,6 +735,34 @@ fn tools(env: &Env) -> Vec<(&'static str, PathBuf, fn(&str) -> String)> {
     out
 }
 
+/// The self-update replaces the program, not the hook entries in each
+/// tool's settings: the first session a newer program runs re-merges the
+/// files Collide already manages there (the merge replaces an older copy of
+/// its own entries and keeps everything else), so hook events added in a
+/// later version are registered without a reinstall. A file without
+/// Collide's entries (the plugin's --no-settings install) is left alone.
+pub fn refresh_settings(env: &Env) {
+    let mut machine = settings(env);
+    let version = crate::report::HOOK_VERSION as u64;
+    if machine.get("settings_version").and_then(Value::as_u64).unwrap_or(0) >= version {
+        return;
+    }
+    for (_, path, merge) in tools(env) {
+        let Ok(existing) = std::fs::read_to_string(&path) else { continue };
+        if !existing.contains("# collide-machine") {
+            continue;
+        }
+        let merged = merge(&existing);
+        if merged != existing {
+            let _ = std::fs::write(&path, merged);
+        }
+    }
+    if let Some(map) = machine.as_object_mut() {
+        map.insert("settings_version".into(), json!(version));
+    }
+    save_settings(env, &machine);
+}
+
 fn copy_executable(from: &Path, to: &Path) -> Result<(), String> {
     if from == to {
         return Ok(());
@@ -783,6 +811,9 @@ pub fn install(args: &[String], env: &Env) -> i32 {
     let mut machine = settings(env);
     if machine.as_object().map_or(true, |m| m.is_empty()) {
         machine = json!({"mode": "local"});
+    }
+    if let Some(map) = machine.as_object_mut() {
+        map.insert("settings_version".into(), json!(crate::report::HOOK_VERSION as u64));
     }
     if !save_settings(env, &machine) {
         println!("Collide install: could not write ~/.collide/machine.json.");
@@ -913,7 +944,9 @@ pub fn uninstall(env: &Env) -> i32 {
     write_mcp(env, None, true);
     let path = collide_dir(env).join("machine.json");
     let _ = std::fs::remove_file(path);
-    println!("Collide's machine hooks are removed. Your local data is kept in {}.", local_dir(env).display());
+    println!("Collide's machine hooks and its MCP entry are removed. Your local data is kept in {}.", local_dir(env).display());
+    println!("Added Collide as a connector on claude.ai too? Claude Code loads those as well: remove it under Settings, Connectors on claude.ai.");
+    println!("Restart open agent sessions: they keep the hooks they started with.");
     0
 }
 
@@ -934,6 +967,41 @@ mod tests {
         let removed: Value = serde_json::from_str(&remove_from_claude_settings(&twice)).unwrap();
         assert_eq!(removed["hooks"]["Stop"].as_array().unwrap().len(), 1);
         assert!(removed["hooks"].get("SessionStart").is_none());
+    }
+
+    #[test]
+    fn a_newer_program_brings_the_hook_list_up_to_date_once() {
+        let home = std::env::temp_dir().join(format!("collide-refresh-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        std::fs::create_dir_all(home.join(".claude")).unwrap();
+        let mut env = Env::new();
+        env.insert("HOME".into(), home.to_string_lossy().to_string());
+        env.insert("COLLIDE_HOME".into(), home.to_string_lossy().to_string());
+        // an install from an older version: one event of ours, one of theirs
+        let old = json!({"model": "opus", "hooks": {
+            "SessionStart": [{"hooks": [{"type": "command", "command": machine_command("report")}]}],
+            "Stop": [{"hooks": [{"type": "command", "command": "say done"}]}]}});
+        let path = home.join(".claude").join("settings.json");
+        std::fs::write(&path, old.to_string()).unwrap();
+        save_settings(&env, &json!({"mode": "local"}));
+
+        refresh_settings(&env);
+        let now: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        for (event, _, _) in CLAUDE_EVENTS {
+            assert!(now["hooks"][*event].to_string().contains("# collide-machine"), "{event} registered: {now}");
+        }
+        assert_eq!(now["model"], json!("opus"));
+        assert!(now["hooks"]["Stop"].to_string().contains("say done"), "theirs kept");
+        assert_eq!(settings(&env)["settings_version"], json!(crate::report::HOOK_VERSION as u64));
+
+        // once current, nothing is rewritten; a file Collide does not manage is never touched
+        std::fs::write(&path, r#"{"hooks": {}}"#).unwrap();
+        refresh_settings(&env);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), r#"{"hooks": {}}"#);
+        save_settings(&env, &json!({"mode": "local"}));
+        refresh_settings(&env);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), r#"{"hooks": {}}"#, "no Collide entries: left alone");
+        let _ = std::fs::remove_dir_all(&home);
     }
 
     #[test]
@@ -1555,9 +1623,14 @@ pub fn machine_id(env: &Env) -> String {
     if !known.is_empty() {
         return known;
     }
-    use sha2::{Digest, Sha256};
-    let seed = format!("{:?}{}{}", std::time::SystemTime::now(), std::process::id(), crate::check::home(env));
-    let id: String = Sha256::digest(seed.as_bytes()).iter().take(8).map(|b| format!("{b:02x}")).collect();
+    // the id kept beside the credential outlives machine.json, which an
+    // uninstall removes: a reinstall is the same machine, not a second one
+    let mut id = crate::report::machine_id(env);
+    if id.is_empty() {
+        use sha2::{Digest, Sha256};
+        let seed = format!("{:?}{}{}", std::time::SystemTime::now(), std::process::id(), crate::check::home(env));
+        id = Sha256::digest(seed.as_bytes()).iter().take(8).map(|b| format!("{b:02x}")).collect();
+    }
     if let Some(map) = machine.as_object_mut() {
         map.insert("machine_id".into(), json!(id));
         save_settings(env, &machine);
@@ -1636,7 +1709,9 @@ fn login_as(args: &[String], env: &Env, client_name: &str) -> i32 {
             .trim_end_matches('/')
             .to_string()
     };
-    let access = match crate::login::sign_in_as(&server, env, client_name) {
+    let signed_in = crate::login::sign_in_as(&server, env, client_name);
+    focus_terminal(env);
+    let access = match signed_in {
         Ok(access) => access,
         Err(problem) => {
             println!("Collide login: {problem}.");
@@ -1658,6 +1733,16 @@ fn login_as(args: &[String], env: &Env, client_name: &str) -> i32 {
         return 1;
     }
     link(&server, &connected, env)
+}
+
+/// Back to the app the login was run from, once the browser is done with
+/// it: macOS names that app in `__CFBundleIdentifier` (Terminal, iTerm,
+/// Ghostty, VS Code, Cursor...). Elsewhere the person switches back.
+fn focus_terminal(env: &Env) {
+    let app = config::get(env, "__CFBundleIdentifier").to_string();
+    if cfg!(target_os = "macos") && !app.is_empty() && app.chars().all(|c| c.is_ascii_alphanumeric() || ".-_".contains(c)) {
+        let _ = Command::new("open").args(["-b", &app]).status();
+    }
 }
 
 /// What a sign-in or a claim answered, kept: the credential merged with any
@@ -1694,14 +1779,20 @@ fn link(server: &str, connected: &Value, env: &Env) -> i32 {
         let named = text(&account, "workspace_name");
         if named.is_empty() { text(&account, "workspace") } else { named }
     };
-    let who = text(&account, "user");
+    let who = {
+        let user = text(&account, "user");
+        if user.is_empty() { String::new() } else { format!(" as {user}") }
+    };
     if connected.get("paid").and_then(Value::as_bool) == Some(true) {
         switch_to_cloud(env, &account);
-        println!("Signed in as {who}. This machine now works with your team in {name}; syncing its local history...");
-        return sync(env);
+        println!("Signed in{who}. This machine now works with your team in {name}; syncing its local history...");
+        // signed in either way: a history that could not be read now is sent
+        // by `collide sync` later, and a new machine has none to send
+        let _ = sync(env);
+        return 0;
     }
     println!(
-        "Signed in as {who}. {name} is on Free, so this machine stays local: nothing it does leaves it. \
+        "Signed in{who}. {name} is on Free, so this machine stays local: nothing it does leaves it. \
 When {name} moves to Team (from the dashboard), this machine switches over and syncs its history by itself."
     );
     0
@@ -1720,7 +1811,11 @@ pub fn sync(env: &Env) -> i32 {
     let creds = config::load_json(&config::credentials_path(env));
     let token = config::resolve_token(&creds, &server, &text(&account, "workspace"));
     if !ensure_local(env, Duration::from_secs(5)) {
-        println!("Collide sync: the local server did not start, so there is nothing to read from.");
+        if !local_dir(env).join("collide.db").exists() {
+            println!("Collide sync: this machine has no local history yet, so there is nothing to send.");
+            return 0;
+        }
+        println!("Collide sync: the local server did not start, so its history could not be read. Run it again: ~/.collide/bin/collide sync");
         return 1;
     }
     let local = local_cfg(env);

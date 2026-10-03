@@ -20,7 +20,7 @@ use crate::http;
 use crate::shell;
 use crate::transcript;
 
-pub const HOOK_VERSION: u32 = 51; // must match blocks.HOOK_ARTIFACT_VERSION
+pub const HOOK_VERSION: u32 = 56; // must match blocks.HOOK_ARTIFACT_VERSION
 pub const TOTAL_BUDGET: Duration = Duration::from_millis(500);
 const MAX_FILE_BYTES: u64 = 512 * 1024;
 
@@ -81,6 +81,15 @@ const REDACTIONS: [(&str, &str); 7] = [
     (r"(?i)([?&](?:token|key|secret|password|sig|signature|access_token|api_key|apikey)=)[^&\s'\x22]+", "${1}[redacted]"),
 ];
 
+/// What a build or an interpreter writes, never anyone's work, even in a
+/// repo whose .gitignore does not say so: running `python` beside an edit
+/// must not tell the other agents that `__pycache__` changed.
+fn is_build_output(rel: &str) -> bool {
+    const DIRS: [&str; 6] = ["__pycache__", "node_modules", ".mypy_cache", ".ruff_cache", ".pytest_cache", ".next"];
+    const EXTS: [&str; 5] = [".pyc", ".pyo", ".class", ".o", ".tsbuildinfo"];
+    rel.split('/').any(|part| DIRS.contains(&part)) || EXTS.iter().any(|ext| rel.ends_with(ext))
+}
+
 fn take_chars(text: &str, limit: usize) -> String {
     text.chars().take(limit).collect()
 }
@@ -88,7 +97,7 @@ fn take_chars(text: &str, limit: usize) -> String {
 /// This machine, as a random id made once and kept beside the credential:
 /// no hostname, nothing that names the person. Lets the server see one login
 /// at work on several machines. Twin of report_hook.py `_machine_id`.
-fn machine_id(env: &Env) -> String {
+pub(crate) fn machine_id(env: &Env) -> String {
     let Some(dir) = config::credentials_path(env).parent().map(Path::to_path_buf) else { return String::new() };
     let path = dir.join("machine-id");
     if let Ok(found) = std::fs::read_to_string(&path) {
@@ -663,7 +672,12 @@ fn run_stop(hook_input: &Value, env: &Env, started: Instant) -> i32 {
     crate::prompt::brief_outcome(hook_input, env, started, false);
     let path = text(hook_input, "transcript_path");
     let note = transcript::limit_note(&path);
-    if note.is_empty() {
+    // what the agent said it did: the note on the code this turn changed
+    let reply = {
+        let given = text(hook_input, "last_assistant_message");
+        if given.trim().is_empty() { transcript::last_reply(&path) } else { given }
+    };
+    if note.is_empty() && reply.trim().is_empty() {
         return 0;
     }
     let cwd = {
@@ -690,11 +704,18 @@ fn run_stop(hook_input: &Value, env: &Env, started: Instant) -> i32 {
     if remaining.is_zero() {
         return 0;
     }
+    let session = text(hook_input, "session_id");
+    if note.is_empty() {
+        // no tokens ride this one: the turn's cost went with its edits
+        let settled = json!({"repo_id": cfg.repo_id, "session": session, "action": "settled",
+                             "text": reply, "agent": user_agent()});
+        let _ = http::post(&cfg.server, "/presence", &cfg.token, &user_agent(), &settled, remaining);
+        return 0;
+    }
     let mut meta = transcript::turn_meta(&path);
     for key in transcript::USAGE_KEYS {
         meta.remove(key); // a limit hit spends nothing
     }
-    let session = text(hook_input, "session_id");
     if !session.is_empty() {
         meta.insert("session".into(), json!(session));
     }
@@ -1042,6 +1063,8 @@ fn run_session_start(hook_input: &Value, env: &Env) -> i32 {
     // releases, now and then; the local server has none to offer
     if crate::machine::installed(env) {
         crate::selfupdate::spawn_if_due(&crate::machine::update_server(env), env);
+        // a program that updated itself brings its hook list up to date too
+        crate::machine::refresh_settings(env);
     }
     let cwd = {
         let from_input = text(hook_input, "cwd");
@@ -1411,7 +1434,7 @@ fn run_event(stdin_data: &str, env: &Env) -> i32 {
             // before note_touch as well: a scratch file is not the session's
             // work either, and counting it would flatter the hit rate
             let git_started = Instant::now();
-            let ignored = git::is_ignored(&root, &rel);
+            let ignored = is_build_output(&rel) || git::is_ignored(&root, &rel);
             local.set(local.get() + git_started.elapsed());
             if ignored {
                 continue;

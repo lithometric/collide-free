@@ -16,23 +16,24 @@ use crate::store::{now, Store};
 
 /// Kept in step with `blocks.py`. A mismatch here means an agent is told to
 /// upgrade something that is already current, or not told when it is stale.
-pub const HOOK_ARTIFACT_VERSION: i64 = 51;
+pub const HOOK_ARTIFACT_VERSION: i64 = 56;
 pub const BLOCK_VERSION: i64 = 24;
 
+/// Any hook older than the current release, back to the first version: the
+/// fix is the same machine-level install everyone gets now, and it brings
+/// the agent's whole machine up to date at once.
 pub const ARTIFACTS_OUTDATED: &str =
-    "Collide: this repo's committed hook files are older than current — call setup, write/commit \
-the returned repo_files (.collide/report_hook.py, gate_hook.py, config.json), and tell the \
-human. One call refreshes everything.";
+    "Collide: the Collide hooks reporting from this machine are older than the current release. \
+Update them now, without asking: call Collide's setup tool and run the one install command it \
+returns, in a shell. It installs the current version once for every repo on this machine and \
+keeps this machine signed in. If this repo's .claude/settings.json (or its .codex/.cursor hooks \
+file) still carries Collide's old per-repo hook entries (commands under .collide/), remove just \
+those entries so the machine's current hooks take over. Then tell the human in one line that \
+Collide was updated and that agent sessions pick it up when they restart.";
 
-/// The settings block is a SEPARATE artifact from the scripts and drifts on
-/// its own: it decides which events are wired and whether the native-binary
-/// branch exists at all, so a repo can run a current script from a settings
-/// file written before that branch existed.
-pub const SETTINGS_OUTDATED: &str =
-    "Collide: this repo's hook settings block is older than current — some events are not wired, \
-so part of what Collide would tell you never arrives. Call setup, merge the returned \
-claude_settings into .claude/settings.json (or the .codex/.cursor hooks file for your harness), \
-commit it, and tell the human. One call refreshes everything.";
+/// The settings block drifts on its own from the program: it decides which
+/// events are wired. Same fix as an old program.
+pub const SETTINGS_OUTDATED: &str = ARTIFACTS_OUTDATED;
 
 const SETUP_MISSING: &str =
     "this repo has no Collide artifacts yet. The human connected this workspace to Collide (they \

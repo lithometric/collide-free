@@ -86,20 +86,20 @@ pub fn tool_annotations(name: &str) -> Option<ToolAnnotations> {
         "explain_code" => Some(ToolAnnotations::new().read_only(true).destructive(false).open_world(false)),
         "recap" => Some(ToolAnnotations::new().read_only(true).destructive(false).open_world(false)),
         "recall" => Some(ToolAnnotations::new().read_only(true).destructive(false).open_world(false)),
-        "remember" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(false)),
+        "remember" => Some(ToolAnnotations::new().read_only(false).destructive(true).open_world(true)),
         // open world: a connected CRM gets the task too (crm::sync_deferred)
         "defer_intent" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(true)),
-        "send_agent_message" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(false)),
+        "send_agent_message" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(true)),
         "inbox_ack" => Some(ToolAnnotations::new().read_only(false).destructive(false).idempotent(true).open_world(false)),
-        "claim" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(false)),
-        "pending_reconciliations" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(false)),
+        "claim" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(true)),
+        "pending_reconciliations" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(true)),
         "setup" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(false)),
         "connect_agents" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(false)),
         "check_collisions" => Some(ToolAnnotations::new().read_only(true).destructive(false).open_world(false)),
-        "report_edit" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(false)),
-        "declare_intent" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(false)),
-        "heartbeat" => Some(ToolAnnotations::new().read_only(false).destructive(false).idempotent(true).open_world(false)),
-        "complete_intent" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(false)),
+        "report_edit" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(true)),
+        "declare_intent" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(true)),
+        "heartbeat" => Some(ToolAnnotations::new().read_only(false).destructive(false).idempotent(true).open_world(true)),
+        "complete_intent" => Some(ToolAnnotations::new().read_only(false).destructive(false).open_world(true)),
         // it records the repo's setup state, so it is not read-only
         "sync_agents_block" => Some(ToolAnnotations::new().read_only(false).destructive(false).idempotent(true).open_world(false)),
         _ => None,
@@ -152,7 +152,7 @@ pub fn tool_table() -> Vec<(&'static str, &'static str, Value)> {
          r#"Exact facts about code without opening the file: the signature, parameters, calls, span and hash of one symbol, or, omitting symbol, of every symbol in the module, with the notes anchored to it and whether the file passed the repo's check. Use it when a briefing lacks a fact; use blast_radius for who depends on it. Read-only."#,
          json!({"type": "object", "properties": {"repo_id": {"type": "string", "description": "The repository id, e.g. github.com/org/repo (repo_id in .collide/config.json)."}, "path": {"type": "string", "description": "Repo-relative file path, e.g. src/auth.py."}, "symbol": {"type": "string", "description": "Function, class or method name; omit for the whole module."}}, "required": ["repo_id", "path"]})),
         ("blast_radius",
-         r#"Before renaming, changing a signature or deleting: every symbol that depends on this one, level by level, with each dependent's file, owner and any in-flight work over it. Answers "what breaks if I change this" from the live code graph instead of a repo-wide grep; skip it when the briefing's Coverage line says every dependent is already listed. Read-only."#,
+         r#"Before renaming, changing a signature or deleting: every symbol that depends on this one, level by level, with each dependent's file, owner and any in-flight work over it. Answers "what breaks if I change this" from the live code graph; skip it when the briefing's Coverage line says every dependent is already listed. Read-only."#,
          json!({"type": "object", "properties": {"repo_id": {"type": "string", "description": "The repository id, e.g. github.com/org/repo (repo_id in .collide/config.json)."}, "path": {"type": "string", "description": "Repo-relative file path of the symbol."}, "symbol": {"type": "string", "description": "The symbol whose dependents to list; omit for the whole file."}, "depth": {"type": "integer", "description": "How many hops of dependents to follow, 1 to 6 (default 3)."}}, "required": ["repo_id", "path"]})),
         ("plan_work",
          "BEFORE dispatching agents, and the live gate while they run. Collapse a list of work units — {path, symbol, op?} each — into the fewest independent groups, then check every group against what is open right now: a group nobody else has a claim on is run_now; one that overlaps another agent's intent, a hot file, or whose typed ops cannot be proven to commute is hold, with who blocks it. dispatch=true claims each run_now group as an intent (pass its intent_id to the agent you spawn, to heartbeat and complete) and queues the held ones: when the agents in their way finish, a release line arrives in your context; wait for it rather than guessing. Units whose blast radii (to `depth`) touch the same files are one group: two agents there would collide, and one agent already has the context. Units that are the same transform (same op on the same symbol across files) are one group: six call sites needing the same change is one agent doing six ops, not six agents paying the fixed cost. Returns the groups with their union of files; the suggested agent count is the group count.",
@@ -193,8 +193,8 @@ pub fn tool_table() -> Vec<(&'static str, &'static str, Value)> {
          json!({"type": "object", "properties": {"repo_id": {"type": "string"}},
                 "required": ["repo_id"]})),
         ("connect_agents",
-         r#"Set up Collide for the other agent tools a team runs in this repo (Codex, Cursor, Windsurf, Cline, GitHub Copilot): their rules files, hook configs and MCP configs, plus your credential. For Claude Code use setup. Returns repo files to write and commit, user files to install, and copy-paste snippets."#,
-         json!({"type": "object", "properties": {"repo_id": {"type": "string", "description": "The repository id, e.g. github.com/org/repo (repo_id in .collide/config.json)."}}, "required": ["repo_id"]})),
+         r#"Set up Collide for the agent tools on this machine (Claude Code, Codex, Cursor): returns the same one install command as setup, which installs Collide's hooks once for every repo on the machine and writes nothing into the repo. mode "files" returns the older per-repo files instead (rules files, hook configs and MCP configs for Windsurf, Cline and GitHub Copilot too), which are large."#,
+         json!({"type": "object", "properties": {"repo_id": {"type": "string", "description": "The repository id, e.g. github.com/org/repo (repo_id in .collide/config.json)."}, "mode": {"type": "string", "description": "Leave empty for the machine install; \"files\" for the per-repo files."}}, "required": ["repo_id"]})),
         ("send_agent_message",
          r#"Send a message to teammates' agents. to = one account email; or anchor = the code it is about ("path.py::symbol", "path.py" or "dir/") with no `to`, which reaches whoever has an open intent on, or edited in the last day, that code or its callers. With an anchor the recipient also sees whether the code changed since you sent it and whether its tests have passed since. It arrives with their next tool result. Returns the message id and who received it."#,
          json!({"type": "object", "properties": {"repo_id": {"type": "string", "description": "The repository id, e.g. github.com/org/repo (repo_id in .collide/config.json)."}, "message": {"type": "string", "description": "What you need them to do or know."}, "to": {"type": "string", "description": "A teammate's account email; omit it when anchor is given."}, "anchor": {"type": "string", "description": "The code the message is about: path.py::symbol, path.py, or dir/."}}, "required": ["repo_id", "message"]})),
@@ -208,7 +208,7 @@ pub fn tool_table() -> Vec<(&'static str, &'static str, Value)> {
          r#"When a response says two agents' work collides (reconciliations_pending): claim the open collisions, with both sides' intents, changed lines and notes, to merge them. Merge by keeping both sides' work; never by deleting either. After the merge passes the tests, call again with resolve=[id]. Returns the claimed reconciliations and how many stay open."#,
          json!({"type": "object", "properties": {"repo_id": {"type": "string", "description": "The repository id, e.g. github.com/org/repo (repo_id in .collide/config.json)."}, "resolve": {"type": "array", "items": {"type": "string"}, "description": "Ids of reconciliations you have merged and verified."}}, "required": ["repo_id"]})),
         ("explain_code",
-         r#"Why the code is the way it is: the history behind a path or symbol, oldest first — each edit (who, when, what changed), completed intents with their rationales, reverted attempts and anchored notes. Use it before git blame or git log: it includes uncommitted work and the reasons given. Read-only."#,
+         r#"Why the code is the way it is: the history behind a path or symbol, oldest first — each edit (who, when, what changed), completed intents with their rationales, reverted attempts and anchored notes. It includes uncommitted work and the reasons given. Read-only."#,
          json!({"type": "object", "properties": {"repo_id": {"type": "string", "description": "The repository id, e.g. github.com/org/repo (repo_id in .collide/config.json)."}, "path": {"type": "string", "description": "File to explain; with no symbol, the whole file."}, "symbol": {"type": "string", "description": "Narrow the history to one symbol."}}, "required": ["repo_id"]})),
         ("graph_export",
          "Export the code graph for other tools: \"graphify\" (graph.json, the shape Graphify's viewer and Obsidian export read), \"graphml\" (Gephi, yEd) or \"cypher\" (Neo4j, FalkorDB).",
@@ -793,6 +793,12 @@ impl CollideMcp {
                         // exactly as Python raises it into the tool result
                         Err(message) => json!({"ok": false, "error": message}),
                     },
+                    // connect_agents is setup's machine install now: one command
+                    // for every repo on the machine. The repo files it used to
+                    // return (every hook script, ~230K characters) only on
+                    // request, mode "files"
+                    _ if can_write && text_of(&args, "mode") != "files" => crate::blocks::setup_tool_response(
+                        store, "", can_write, &artifact),
                     _ => match crate::blocks::connect_agents_response(store, can_write, &artifact) {
                         Ok(value) => value,
                         Err(message) => json!({"ok": false, "error": message}),

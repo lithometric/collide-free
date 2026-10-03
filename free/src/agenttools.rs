@@ -77,7 +77,8 @@ pub fn send_agent_message(
     let _ = store.ledger_append(scope, "agent_message", &json!({
         "to": to, "from": from_user, "id": id, "chars": truncated.chars().count(),
     }), ts);
-    json!({"ok": true, "message_id": id})
+    // the receipt: who it went to, as the anchored form already says
+    json!({"ok": true, "message_id": id, "delivered_to": [to]})
 }
 
 /// How far back an edit counts as "working on it" when a message is routed

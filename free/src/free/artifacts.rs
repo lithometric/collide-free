@@ -19,3 +19,9 @@ pub fn sync_enabled() -> bool {
 pub async fn sync_from_github() -> Result<usize, String> {
     Ok(0)
 }
+
+/// The free version fetches no releases: there is never an earlier
+/// version to have on hand.
+pub async fn ensure_version(version: i64) -> Result<std::path::PathBuf, String> {
+    Err(format!("the free version does not fetch hook v{version}"))
+}

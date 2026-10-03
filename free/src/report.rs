@@ -59,6 +59,36 @@ fn attach_cost(row: &mut Map<String, Value>, input: &ReportInput) {
     }
 }
 
+/// An unchanged re-report writes no edit, but the turn it rode in on still
+/// cost tokens, and costs read them off ledger rows (one per turn). The
+/// first time a turn is seen it gets one usage-only row; a turn already on
+/// the ledger through an edit gets nothing.
+fn bill_turn_only(store: &Store, input: &ReportInput, stamp: f64) {
+    let has_usage = input.tokens != 0 || input.input_tokens != 0 || input.output_tokens != 0
+        || input.cache_read_tokens != 0 || input.cache_creation_tokens != 0;
+    if !has_usage || input.turn_id.is_empty() || store.eph_get(&billed_turn_key(input)).is_some() {
+        return;
+    }
+    let mut row = Map::new();
+    row.insert("user".into(), json!(input.user_id));
+    row.insert("session".into(), json!(input.session));
+    row.insert("agent".into(), json!(input.agent));
+    row.insert("path".into(), json!(input.path));
+    attach_cost(&mut row, input);
+    let _ = store.ledger_append(input.scope, "turn_usage", &Value::Object(row), stamp);
+    mark_turn_billed(store, input);
+}
+
+fn billed_turn_key(input: &ReportInput) -> String {
+    format!("billedturn:{}:{}", input.scope, input.turn_id)
+}
+
+fn mark_turn_billed(store: &Store, input: &ReportInput) {
+    if !input.turn_id.is_empty() {
+        let _ = store.eph_set(&billed_turn_key(input), &json!({}), Some(86_400.0));
+    }
+}
+
 pub struct ReportInput<'a> {
     pub scope: &'a str,
     pub user_id: &'a str,
@@ -541,6 +571,11 @@ pub fn report_edit(store: &Store, input: &ReportInput) -> Value {
         });
     let hunks = diff::hunks(&base_hashes, &new_hashes, &lines);
     let (lines_added, lines_removed) = diff::hunk_totals(&hunks);
+    // the same content this person last reported: a shell command re-reports
+    // every uncommitted file, and a row per re-report buried the real edits
+    // (explain_code read forty "0 lines" rows for one file). Presence and the
+    // gate's fingerprint above still move; the ledger does not.
+    let unchanged = !base_hashes.is_empty() && base_hashes == new_hashes;
 
     let parsed = match local {
         Some(l) => collide_core::local::from_structure(input.path, &l["structure"]),
@@ -588,8 +623,13 @@ pub fn report_edit(store: &Store, input: &ReportInput) -> Value {
         if let Some(row) = row.as_object_mut() {
             attach_cost(row, input);
         }
-        let _ = store.ledger_append(input.scope, "edit_reported", &row, stamp);
-        crate::events::publish(
+        if unchanged {
+            bill_turn_only(store, input, stamp);
+        } else {
+            let _ = store.ledger_append(input.scope, "edit_reported", &row, stamp);
+            mark_turn_billed(store, input);
+        }
+        if !unchanged { crate::events::publish(
             store,
             input.scope,
             json!({"kind": "edit", "user": input.user_id, "agent": input.agent,
@@ -597,7 +637,7 @@ pub fn report_edit(store: &Store, input: &ReportInput) -> Value {
                    "hunks": hunks, "lines_added": lines_added,
                    "lines_removed": lines_removed}),
             input.via,
-        );
+        ); }
         let mut unsupported = json!({
             "ok": true, "parse": "unsupported", "path": input.path,
             "lines_added": lines_added, "lines_removed": lines_removed, "hunks": hunks,
@@ -835,7 +875,12 @@ pub fn report_edit(store: &Store, input: &ReportInput) -> Value {
     }
     payload.insert("hunks".into(), json!(ledger_hunks(&hunks)));
     payload.insert("events".into(), json!(ledger_events(&events)));
-    let _ = store.ledger_append(input.scope, "edit_reported", &Value::Object(payload), stamp);
+    if unchanged && events.is_empty() && !payload.contains_key("symbols_changed") {
+        bill_turn_only(store, input, stamp);
+    } else {
+        let _ = store.ledger_append(input.scope, "edit_reported", &Value::Object(payload), stamp);
+        mark_turn_billed(store, input);
+    }
 
     crate::supervise::watchdog(store, &crate::supervise::WatchdogInput {
         scope: input.scope, user_id: input.user_id, session: input.session,

@@ -7,7 +7,7 @@ Run several Claude Code agents on one repository, alone or with a team, without 
 - **Writes that would clash are stopped.** An edit against a function a teammate just changed is held until your agent has their version.
 - **Pushing takes one step.** `git push` is rebased onto your teammates' new commits, tested and pushed for the agent, instead of the reject-pull-retest loop.
 
-In our team benchmark (12 agents, 4 people, one repository), agents with Collide used 44% fewer tokens than the same agents without it, with every task correct. [The study](https://collidemcp.com/benchmarks/study-3-teams-easy-to-hard).
+In our team benchmark (12 agents, 4 people, one repository), agents with Collide used 47% fewer tokens than the same agents without it, with every task correct. [The study](https://collidemcp.com/benchmarks/study-3-teams-easy-to-hard).
 
 ## Install
 

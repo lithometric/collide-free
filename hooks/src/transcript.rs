@@ -145,3 +145,22 @@ pub fn limit_note(path: &str) -> String {
     }
     String::new()
 }
+
+/// The agent's closing words for this turn: the text of the last assistant
+/// message in the transcript's tail. The server keeps its first paragraph
+/// as the note on whatever the turn changed (`/presence` action
+/// "settled"); empty when there is none.
+pub fn last_reply(path: &str) -> String {
+    let Some(text) = tail(path) else { return String::new() };
+    for line in text.lines().rev() {
+        let Ok(entry) = serde_json::from_str::<Value>(line) else { continue };
+        if entry.get("type").and_then(Value::as_str) != Some("assistant") {
+            continue;
+        }
+        let said = entry_text(line);
+        if !said.trim().is_empty() && said != line {
+            return take_chars(said.trim(), 4000);
+        }
+    }
+    String::new()
+}

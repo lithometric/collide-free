@@ -391,3 +391,118 @@ pub fn defer(
     );
     json!({"ok": true, "tripwire_id": id, "expires": expires})
 }
+
+/// How long a turn's summary may run in a note: the gist, not the essay.
+const TURN_NOTE_CHARS: usize = 400;
+
+/// The note a finished turn leaves, with no tool call: the hooks send the
+/// agent's closing message when its turn ends, and if that turn changed
+/// code it becomes one note, anchored at the first symbol the turn
+/// changed and naming the rest. This is what the `[settled]` notes did
+/// while agents declared intents; the hooks stopped them declaring, and the
+/// notes stopped with them. One note per turn, never one per symbol.
+pub fn settle_turn(store: &Store, scope: &str, user_id: &str, session: &str, summary: &str, agent: &str) -> Value {
+    let stamp = now();
+    let key = format!("settledturn:{scope}:{session}");
+    let since = store
+        .eph_get(&key)
+        .and_then(|v| v.get("ts").and_then(Value::as_f64))
+        .unwrap_or(stamp - 6.0 * 3600.0);
+    let _ = store.eph_set(&key, &json!({"ts": stamp}), Some(86_400.0));
+    let gist = turn_gist(summary);
+    if session.is_empty() || gist.chars().count() < 40 {
+        return json!({"ok": true, "saved": 0});
+    }
+    let mut changed: Vec<(String, String)> = Vec::new();
+    for row in store.ledger_since_kinds(scope, since, &["edit_reported"]) {
+        let payload = &row.payload;
+        if text(payload, "session") != session || text(payload, "user") != user_id {
+            continue;
+        }
+        let path = text(payload, "path");
+        let mut names: Vec<String> = payload
+            .get("symbols_changed")
+            .and_then(Value::as_object)
+            .map(|m| m.keys().cloned().collect())
+            .unwrap_or_default();
+        for event in payload.get("events").and_then(Value::as_array).into_iter().flatten() {
+            names.push(text(event, "symbol"));
+        }
+        for name in names.into_iter().filter(|n| !n.is_empty()) {
+            if !changed.iter().any(|(p, n)| *p == path && *n == name) {
+                changed.push((path.clone(), name));
+            }
+        }
+    }
+    let Some((path, symbol)) = changed.first().cloned() else {
+        return json!({"ok": true, "saved": 0});
+    };
+    let others: Vec<String> = changed.iter().skip(1).take(6).map(|(_, n)| n.clone()).collect();
+    let fact = if others.is_empty() { gist } else { format!("{gist} (also changed: {})", others.join(", ")) };
+    let saved = crate::memory::save(
+        store,
+        &crate::memory::SaveInput {
+            scope,
+            user_id,
+            fact: &fact,
+            tags: &["rationale", "turn"],
+            agent,
+            anchor: &format!("{path}::{symbol}"),
+            auto: "rationale",
+            supersedes: "",
+        },
+    );
+    json!({"ok": true, "saved": 1, "note": saved.get("memory_id").cloned().unwrap_or(Value::Null)})
+}
+
+/// The first paragraph of a closing message, cut at a sentence end near
+/// TURN_NOTE_CHARS, with markdown emphasis and headings dropped.
+fn turn_gist(summary: &str) -> String {
+    let first = summary
+        .split("\n\n")
+        .map(|p| p.trim().trim_start_matches('#').trim())
+        .find(|p| !p.is_empty() && !p.starts_with("```"))
+        .unwrap_or("");
+    let plain: String = first.replace("**", "").replace('`', "").split_whitespace().collect::<Vec<_>>().join(" ");
+    if plain.chars().count() <= TURN_NOTE_CHARS {
+        return plain;
+    }
+    let cut: String = plain.chars().take(TURN_NOTE_CHARS).collect();
+    match cut.rfind(". ") {
+        Some(end) if end > TURN_NOTE_CHARS / 2 => cut[..=end].to_string(),
+        _ => format!("{}...", cut.trim_end()),
+    }
+}
+
+#[cfg(test)]
+mod settle_tests {
+    use super::*;
+
+    #[test]
+    fn a_turn_that_changed_code_leaves_one_note_and_a_chat_leaves_none() {
+        let store = Store::open(std::path::Path::new(":memory:")).unwrap();
+        let edit = json!({"user": "a@x", "session": "s1", "path": "calc.py",
+            "symbols_changed": {"sum_prices": {"before": "h1", "after": "h2"}}, "events": [{"symbol": "checkout"}]});
+        store.ledger_append("w:r", "edit_reported", &edit, now()).unwrap();
+        let summary = "I renamed total to sum_prices so the name says what it sums, and updated checkout to match.\n\nDetails follow.";
+        let saved = settle_turn(&store, "w:r", "a@x", "s1", summary, "claude");
+        assert_eq!(saved["saved"], json!(1), "{saved}");
+        let notes = store.ledger_since_kinds("w:r", 0.0, &["memory_saved"]);
+        assert_eq!(notes.len(), 1, "one note per turn, not one per symbol");
+        let id = notes[0].payload["memory_id"].as_str().unwrap().to_string();
+        let row = store.kv_get("memory", &format!("w:r:{id}")).unwrap().to_string();
+        assert!(row.contains("so the name says what it sums") && row.contains("also changed: checkout"), "{row}");
+        assert!(!row.contains("Details follow"), "only the first paragraph");
+        // the next turn, nothing new written: no note
+        assert_eq!(settle_turn(&store, "w:r", "a@x", "s1", summary, "claude")["saved"], json!(0));
+        // another session's turn that wrote nothing: no note
+        assert_eq!(settle_turn(&store, "w:r", "a@x", "s2", summary, "claude")["saved"], json!(0));
+    }
+
+    #[test]
+    fn the_gist_is_the_first_paragraph_cut_at_a_sentence() {
+        let long = format!("**Done.** {} End.", "This sentence is twenty-nine chars. ".repeat(20));
+        let gist = turn_gist(&long);
+        assert!(gist.starts_with("Done.") && gist.ends_with('.') && gist.chars().count() <= TURN_NOTE_CHARS, "{gist}");
+    }
+}

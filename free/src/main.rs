@@ -568,6 +568,14 @@ async fn presence_endpoint(
     crate::freshness::note_checkout(&app.store, &caller.scope, &caller.user_id, &text(&body, "session"), &text(&body, "checkout"));
     let path = text(&body, "path");
     let action = text(&body, "action");
+    // a turn's end: its closing message becomes the note on what it changed
+    if action == "settled" && !text(&body, "repo_id").is_empty() {
+        if let Err(refused) = bind_scope(&app, &caller) {
+            return Json(refused);
+        }
+        return Json(crate::intents::settle_turn(
+            &app.store, &caller.scope, &caller.user_id, &text(&body, "session"), &text(&body, "text"), &text(&body, "agent")));
+    }
     // a session end names no path: the agent is simply gone
     if text(&body, "repo_id").is_empty() || (path.is_empty() && action != "ended") {
         return Json(json!({"ok": false, "reason": "missing repo_id or path"}));
@@ -606,8 +614,18 @@ async fn presence_endpoint(
             via: &via,
         },
     );
-    local::attach_inbox(&app.store, &scope, &user_id, &text(&body, "session"), &mut answer);
+    // the hooks post a test verdict, a usage limit and a session's end
+    // without reading the answer: a message handed back on those would be
+    // marked delivered and never seen, so it waits for a call that prints it
+    if !discards_answer(&action, &body) {
+        local::attach_inbox(&app.store, &scope, &user_id, &text(&body, "session"), &mut answer);
+    }
     Json(answer)
+}
+
+/// A presence post whose answer no hook prints.
+fn discards_answer(action: &str, body: &Value) -> bool {
+    matches!(action, "limit" | "ended") || body.get("tests_ok").is_some()
 }
 
 /// Hook traffic proves this user's machine auto-reports: remember it
@@ -2254,6 +2272,12 @@ async fn ws_feed(
         }
     }
     let scope = app.aliases.scope_for(&workspace_id, &repo_id);
+    // a viewer's live feed carries who and where, never the code (as the
+    // dashboard routes do, routes_observe::redact_for_viewer)
+    let viewer = refusal.is_none()
+        && principal.as_ref().and_then(|p| auth::member(&app.store, &workspace_id, &p.uid)).is_some_and(|member| {
+            billing::effective_access(&billing::plan_of(&app.store, &workspace_id), &member) == "read"
+        });
     ws.on_upgrade(move |mut socket| async move {
         use axum::extract::ws::{CloseFrame, Message};
         if let Some(code) = refusal {
@@ -2264,6 +2288,10 @@ async fn ws_feed(
         loop {
             match feed.recv().await {
                 Ok(event) => {
+                    let mut event = serde_json::to_value(&event).unwrap_or(Value::Null);
+                    if viewer {
+                        crate::access::redact_for_viewer(&mut event);
+                    }
                     let Ok(text) = serde_json::to_string(&event) else { continue };
                     if socket.send(Message::Text(text)).await.is_err() {
                         break;
@@ -2707,6 +2735,12 @@ async fn serve_main() {
                     }
                     Err(error) => {
                         tracing::warn!("hook binaries: {error}");
+                        // until this release's builds exist, the version before
+                        // is what the install script and setup hand out: have it
+                        let previous = crate::envelope::HOOK_ARTIFACT_VERSION - 1;
+                        if let Err(why) = artifacts::ensure_version(previous).await {
+                            tracing::warn!("hook binaries: v{previous} too: {why}");
+                        }
                         if quick_retries > 0 {
                             quick_retries -= 1;
                             60

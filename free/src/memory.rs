@@ -80,6 +80,15 @@ pub fn parse_anchor(anchor: &str) -> Option<Anchor> {
 }
 
 /// The identity of an anchor as a string, for grouping siblings.
+/// An anchor as an agent reads it: `path::symbol`, or the path alone.
+fn anchor_label(anchor: &Value) -> String {
+    let path = anchor.get("path").and_then(Value::as_str).unwrap_or("");
+    match anchor.get("symbol").and_then(Value::as_str).unwrap_or("") {
+        "" => path.to_string(),
+        symbol => format!("{path}::{symbol}"),
+    }
+}
+
 pub fn anchor_key(anchor: &Value) -> String {
     format!(
         "{}::{}#{}",
@@ -703,6 +712,29 @@ pub fn recall(
             .cmp(&a_scope)
             .then(b_created.partial_cmp(&a_created).unwrap_or(std::cmp::Ordering::Equal))
     });
+    // one decision saved on several symbols (the [settled] notes did that,
+    // one copy per symbol) reads once: the newest copy, naming the other
+    // places it was left on
+    let mut kept: Vec<(String, Value)> = Vec::new();
+    for (mem_scope, memory) in matches {
+        let fact = memory.get("fact").and_then(Value::as_str).unwrap_or("").to_string();
+        let anchor = memory.get("anchor").filter(|a| !a.is_null()).map(anchor_label).unwrap_or_default();
+        if let Some((_, first)) = kept.iter_mut().find(|(s, m)| *s == mem_scope && m.get("fact").and_then(Value::as_str) == Some(fact.as_str())) {
+            if !anchor.is_empty() {
+                if let Some(map) = first.as_object_mut() {
+                    let also = map.entry("also_on").or_insert_with(|| json!([]));
+                    if let Some(list) = also.as_array_mut() {
+                        if !list.iter().any(|v| v.as_str() == Some(anchor.as_str())) {
+                            list.push(json!(anchor));
+                        }
+                    }
+                }
+            }
+            continue;
+        }
+        kept.push((mem_scope, memory));
+    }
+    let mut matches = kept;
     matches.truncate(limit.clamp(1, 100) as usize);
 
     let mut by_scope: std::collections::BTreeMap<String, Vec<Value>> =
