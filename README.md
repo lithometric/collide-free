@@ -1,4 +1,4 @@
-# Collide: run multiple AI coding agents on one repo without conflicts
+# Collide MCP: run multiple AI coding agents on one repo without conflicts
 
 [![License: MIT](https://img.shields.io/badge/hooks-MIT-34d399.svg)](#what-is-in-this-repository)
 [![npm](https://img.shields.io/npm/v/collidemcp.svg?label=npx%20collidemcp)](https://www.npmjs.com/package/collidemcp)
