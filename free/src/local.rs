@@ -302,7 +302,7 @@ pub fn send(store: &Store, scope: &str, repo_id: &str, workspace: &str, from: &s
             user
         };
         if online && !to.is_empty() && !sent_to.contains(&to) {
-            crate::agenttools::send_agent_message(store, scope, &signed, &to, &message, "collide-hook");
+            crate::agenttools::send_agent_message_as(store, scope, &signed, &to, &message, "collide-hook", true);
             sent_to.push(to);
         }
     }

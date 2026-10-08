@@ -46,6 +46,11 @@ tower-http = { version = "0.7.1", features = ["catch-panic", "cors"] }
 collide-hooks = { path = "../hooks", optional = true }
 # the graph snapshot resolves each file's imports on its own core (graphview.rs)
 rayon = "1.12"
+# the cloud server's allocator (main.rs): returns freed memory to the system,
+# where glibc's per-thread arenas kept every big map rebuild resident
+mimalloc = { version = "0.1", default-features = false, optional = true }
+# mi_collect: the memory watchdog hands freed memory back (membudget.rs)
+libmimalloc-sys = { version = "0.1", optional = true, features = ["extended"] }
 
 [profile.release]
 opt-level = 3

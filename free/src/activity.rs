@@ -112,13 +112,18 @@ fn focus_view(marker: Option<&Value>, stamp: f64) -> Value {
         empty if empty.is_empty() => "reading".to_string(),
         named => named,
     };
-    json!({
+    let mut view = json!({
         "path": text(marker, "path"),
         "action": action,
         "branch": text(marker, "branch"),
         "ts": ts_of(marker),
         "age_s": python_round(stamp - ts_of(marker), 1),
-    })
+    });
+    // a command that has started and not reported its end: running now
+    if marker.get("started").and_then(Value::as_bool) == Some(true) {
+        view["started"] = json!(true);
+    }
+    view
 }
 
 /// The per-agent markers, gathered under one identity.
@@ -193,6 +198,13 @@ fn row(input: &RowInput, stamp: f64) -> Value {
     // not an agent that is here
     let ended = input.last_action.map(|a| text(a, "kind")) == Some("ended".into());
     let agent = newest_with("agent");
+    // the agent's token counter names its model from its first report: an
+    // agent whose newest records are commands still running (which carried
+    // none) was drawn as nobody's
+    let model = {
+        let named = newest_with("model");
+        if named.is_empty() { input.tokens.map(|t| text(t, "model")).unwrap_or_default() } else { named }
+    };
 
     // a watcher-reported edit was seen on disk; anything else is the agent's
     // own claim, and the two are different kinds of fact
@@ -228,7 +240,7 @@ fn row(input: &RowInput, stamp: f64) -> Value {
         "last_activity_s": idle_s,
         "current_path": current_path,
         "agent": agent,
-        "model": newest_with("model"),
+        "model": model,
         "branch": newest_with("branch"),
         "task": input.task,
         "tokens_total": input.tokens.and_then(|t| t.get("total").and_then(Value::as_i64)).unwrap_or(0),
@@ -349,6 +361,17 @@ pub fn list_activity(
             task,
             workers: &agent.workers,
         }, stamp));
+        // which working copy it is in, by its folder's name: only when the
+        // hook said, so a row from an older hook is what it always was
+        let worktree = crate::freshness::worktree_of(store, &agent_scope, &agent.user, &agent.session);
+        if let (false, Some(map)) = (worktree.is_empty(), rows.last_mut().and_then(Value::as_object_mut)) {
+            map.insert("worktree".into(), json!(worktree));
+        }
+        // what it said before its current line, newest first
+        let earlier = crate::presence::history(store, &agent_scope, &agent.user, &agent.session);
+        if let (false, Some(map)) = (earlier.is_empty(), rows.last_mut().and_then(Value::as_object_mut)) {
+            map.insert("earlier_actions".into(), Value::Array(earlier));
+        }
         seated.insert(seat);
     }
     let no_workers: BTreeMap<String, String> = BTreeMap::new();

@@ -26,7 +26,7 @@ pub fn record(_store: &Store, _workspace: &str, _uid: &str, _email: &str, _body:
     not_here()
 }
 
-pub fn import(_store: &Store, _aliases: &crate::repo::Aliases, _workspace: &str, _email: &str, _body: &Value) -> Value {
+pub fn import(_store: &Store, _aliases: &crate::repo::Aliases, _workspace: &str, _uid: &str, _allowed: &[String], _email: &str, _body: &Value) -> Value {
     not_here()
 }
 

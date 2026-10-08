@@ -195,11 +195,30 @@ pub fn repo_config(root: &Path, env: &Env) -> Option<config::Config> {
     Some(config::Config { server, token, repo_id, verify: String::new(), local_parse: true, machine_local })
 }
 
-/// True when this repo runs Collide's hooks from its own settings: the
-/// machine's hooks then stay silent, or every event would be handled twice.
+/// True when this repo runs Collide's hooks from its own settings, for the
+/// agent tool running now, and those hooks can work: the machine's hooks
+/// then stay silent, or every event would be handled twice.
+///
+/// Only the running tool's own file counts (Claude Code's said nothing about
+/// a Codex session), and only when the repo's hook has something to run and
+/// a server to report to. A repo set up the old way and since half removed
+/// (its `.collide/` gone, its settings left) silenced the machine's hooks
+/// while its own did nothing: no agent in it reported at all.
 pub fn repo_runs_its_own(root: &Path) -> bool {
-    let settings = std::fs::read_to_string(root.join(".claude").join("settings.json")).unwrap_or_default();
-    settings.contains("collide-hook") || settings.contains(".collide/report_hook.py")
+    let file = match crate::harness::current() {
+        "codex" => root.join(".codex").join("hooks.json"),
+        "cursor" => root.join(".cursor").join("hooks.json"),
+        _ => root.join(".claude").join("settings.json"),
+    };
+    let settings = std::fs::read_to_string(file).unwrap_or_default();
+    let mentions = ["collide-hook", ".collide/report_hook.py", "collide-report-hook"].iter().any(|m| settings.contains(m));
+    let collide = root.join(".collide");
+    let runnable = collide.join("bin").join("collide-hook").exists()
+        || collide.join("bin").join("collide-hook.exe").exists()
+        || collide.join("report_hook.py").exists();
+    let configured = config::load_json(&collide.join("config.json"))
+        .get("server_url").and_then(Value::as_str).is_some_and(|s| !s.is_empty());
+    mentions && runnable && configured
 }
 
 /// The local server's own id for this data directory: the same hash it
@@ -303,27 +322,62 @@ pub fn before_event(stdin_data: &str, env: &Env) -> Option<i32> {
     }
     let event = text(&input, "hook_event_name");
     note_agent_process(&text(&input, "session_id"), env);
-    if matches!(event.as_str(), "SessionStart" | "UserPromptSubmit") {
-        let repo_cfg = config::load_json(&root.join(".collide").join("config.json"));
-        let own = repo_cfg.get("server_url").and_then(Value::as_str).is_some_and(|s| !s.is_empty());
-        let local = repo_config(&root, env).is_some_and(|c| c.machine_local);
-        if !own && local {
-            let wait = if event == "SessionStart" { Duration::from_secs(4) } else { Duration::from_millis(1500) };
-            if ensure_local(env, wait) && event == "UserPromptSubmit" {
-                index_once(&root, env);
-            }
+    let repo_cfg = config::load_json(&root.join(".collide").join("config.json"));
+    let own = repo_cfg.get("server_url").and_then(Value::as_str).is_some_and(|s| !s.is_empty());
+    if own {
+        return None;
+    }
+    let Some(cfg) = repo_config(&root, env) else { return None };
+    if cfg.machine_local && matches!(event.as_str(), "SessionStart" | "UserPromptSubmit") {
+        let wait = if event == "SessionStart" { Duration::from_secs(4) } else { Duration::from_millis(1500) };
+        if !ensure_local(env, wait) {
+            return None;
         }
+    }
+    // any first hook call in a repo maps it, local or cloud: a session start
+    // does it itself, so every other event (the first prompt, read or edit
+    // of a session that was open before Collide was installed, or before
+    // the machine moved to its team) does it once, in the background
+    if event != "SessionStart" && cfg.usable() {
+        index_once(&root, &cfg.server, env);
     }
     None
 }
 
-/// A session that was already open when Collide was installed missed its
-/// session start, the step that maps the repo's code. Its first prompt
-/// maps it instead, in the background, once per repo on this machine.
-fn index_once(root: &Path, env: &Env) {
+/// Map the repo this process runs in, once per repo and server on this
+/// machine, in the background: what a first hook call does, for callers
+/// that are not a hook (the MCP bridge). A repo that runs Collide's own
+/// hooks, or a machine with nothing installed, is left alone.
+pub fn index_here(env: &Env) {
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let project = config::get(env, "CLAUDE_PROJECT_DIR");
+    let project = (!project.is_empty()).then(|| PathBuf::from(project));
+    let Some(root) = config::find_repo_root(&[Some(cwd), project]) else { return };
+    let repo_cfg = config::load_json(&root.join(".collide").join("config.json"));
+    if repo_cfg.get("server_url").and_then(Value::as_str).is_some_and(|s| !s.is_empty()) {
+        return;
+    }
+    let Some(cfg) = repo_config(&root, env) else { return };
+    if cfg.usable() {
+        index_once(&root, &cfg.server, env);
+    }
+}
+
+/// Which server a repo's map was sent to, per repo: a machine that moves
+/// from local to its team's servers maps the repo again there.
+fn indexed_marker(root: &Path, server: &str, env: &Env) -> PathBuf {
     use sha2::{Digest, Sha256};
-    let key: String = Sha256::digest(root.to_string_lossy().as_bytes()).iter().take(8).map(|b| format!("{b:02x}")).collect();
-    let marker = local_dir(env).join("indexed").join(key);
+    let seed = format!("{}\n{}", root.to_string_lossy(), server.trim_end_matches('/'));
+    let key: String = Sha256::digest(seed.as_bytes()).iter().take(8).map(|b| format!("{b:02x}")).collect();
+    local_dir(env).join("indexed").join(key)
+}
+
+/// A session that was already open when Collide was installed (or when the
+/// machine moved to its team) missed its session start, the step that maps
+/// the repo's code. Its first hook call maps it instead, in the background,
+/// once per repo and server on this machine.
+fn index_once(root: &Path, server: &str, env: &Env) {
+    let marker = indexed_marker(root, server, env);
     if marker.exists() {
         return;
     }
@@ -341,10 +395,8 @@ fn index_once(root: &Path, env: &Env) {
 }
 
 /// A session start maps the repo itself: the first prompt need not.
-pub fn mark_indexed(root: &Path, env: &Env) {
-    use sha2::{Digest, Sha256};
-    let key: String = Sha256::digest(root.to_string_lossy().as_bytes()).iter().take(8).map(|b| format!("{b:02x}")).collect();
-    let marker = local_dir(env).join("indexed").join(key);
+pub fn mark_indexed(root: &Path, server: &str, env: &Env) {
+    let marker = indexed_marker(root, server, env);
     let _ = std::fs::create_dir_all(marker.parent().unwrap_or(Path::new(".")));
     let _ = std::fs::write(&marker, root.to_string_lossy().as_bytes());
 }
@@ -440,6 +492,10 @@ const CODEX_EVENTS: &[(&str, Option<&str>, &str)] = &[
     ("SessionStart", None, "report"),
     ("UserPromptSubmit", None, "report"),
     ("PreToolUse", Some("^(apply_patch|Edit|Write|MultiEdit|shell)$"), "gate"),
+    // Codex names its terminal `Bash` now. A separate entry, so the one above
+    // stays byte-identical: Codex trusts each hook by its hash, and a changed
+    // entry is skipped until the person approves it again in /hooks
+    ("PreToolUse", Some("^Bash$"), "gate"),
     ("PostToolUse", Some("^(apply_patch|Edit|Write|MultiEdit|Read|Grep|Glob|Bash|shell)$"), "report"),
     ("Stop", None, "report"),
 ];
@@ -450,9 +506,13 @@ pub fn merge_codex_hooks(existing: &str) -> String {
     let mut current: serde_json::Map<String, Value> =
         serde_json::from_str::<Value>(existing).ok().and_then(|v| v.as_object().cloned()).unwrap_or_default();
     let mut hooks = current.get("hooks").and_then(Value::as_object).cloned().unwrap_or_default();
+    let mut cleared: Vec<&str> = Vec::new();
     for (event, matcher, sub) in CODEX_EVENTS {
+        // an event's old machine entries go once, before its first new one
+        let fresh = !cleared.contains(event);
+        cleared.push(event);
         let mut kept: Vec<Value> = hooks.get(*event).and_then(Value::as_array).cloned().unwrap_or_default()
-            .into_iter().filter(|entry| !is_machine_entry(entry)).collect();
+            .into_iter().filter(|entry| !fresh || !is_machine_entry(entry)).collect();
         let mut entry = json!({"hooks": [{"type": "command", "command": machine_command_for(sub, "codex"), "timeout": 30}]});
         if let Some(matcher) = matcher {
             entry["matcher"] = json!(matcher);
@@ -632,15 +692,23 @@ fn merge_mcp_json(existing: &str, entry: Option<&Value>) -> Option<String> {
 
 /// Codex's ~/.codex/config.toml with Collide's MCP server, or without it.
 fn merge_codex_mcp(existing: &str, entry: Option<&Value>) -> String {
-    // our block runs from the mark to the next table or the end
+    // our block runs from the mark to the next table or the end. A
+    // `collide` server the person added themselves (`codex mcp add collide
+    // --url ...`) goes too: a second [mcp_servers.collide] is a duplicate
+    // key, and Codex refuses to start at all over it
+    let collide_table = |line: &str| {
+        let t = line.trim();
+        t == "[mcp_servers.collide]" || t == "[mcp_servers.\"collide\"]"
+            || t.starts_with("[mcp_servers.collide.") || t.starts_with("[mcp_servers.\"collide\".")
+    };
     let mut kept: Vec<&str> = Vec::new();
     let mut ours = false;
     for line in existing.lines() {
-        if line.trim() == CODEX_MCP_MARK {
+        if line.trim() == CODEX_MCP_MARK || collide_table(line) {
             ours = true;
             continue;
         }
-        if ours && line.trim_start().starts_with('[') && line.trim() != "[mcp_servers.collide]" && !line.trim().starts_with("[mcp_servers.collide.") {
+        if ours && line.trim_start().starts_with('[') {
             ours = false;
         }
         if !ours {
@@ -757,6 +825,10 @@ pub fn refresh_settings(env: &Env) {
             let _ = std::fs::write(&path, merged);
         }
     }
+    // Hermes's plugin, current (and added where Hermes came after Collide)
+    if installed(env) {
+        let _ = install_hermes(env);
+    }
     if let Some(map) = machine.as_object_mut() {
         map.insert("settings_version".into(), json!(version));
     }
@@ -839,6 +911,9 @@ pub fn install(args: &[String], env: &Env) -> i32 {
         }
         covered.push(format!("{name} ({})", path.display()));
     }
+    if let Some(hermes) = install_hermes(env) {
+        covered.push(hermes);
+    }
 
     // the MCP tools (get_symbol, blast_radius, recap, ...) from the local
     // server, for every tool; the plugin brings Claude Code's itself
@@ -858,7 +933,7 @@ pub fn install(args: &[String], env: &Env) -> i32 {
         println!("  {} Installed for every repo on this machine", paint.mint("✓"));
         println!("    {}   {}", paint.dim("hooks "), paint.bold(&tools.join(", ")));
         if tools.iter().any(|t| t == "Codex") {
-            println!("    {}   {}", paint.dim("      "), paint.dim("open Claude Code sessions pick it up now; start a new Codex session"));
+            println!("    {}   {}", paint.dim("      "), paint.dim("open Claude Code sessions pick it up now; in Codex, start a new session and approve Collide's hooks in /hooks"));
         }
         println!("    {}   {} {}", paint.dim("server"), host,
             paint.dim(if running { "· running" } else { "· starts with your next session" }));
@@ -942,6 +1017,8 @@ pub fn uninstall(env: &Env) -> i32 {
         }
     }
     write_mcp(env, None, true);
+    crate::wake::off(env);
+    uninstall_hermes(env);
     let path = collide_dir(env).join("machine.json");
     let _ = std::fs::remove_file(path);
     println!("Collide's machine hooks and its MCP entry are removed. Your local data is kept in {}.", local_dir(env).display());
@@ -1005,11 +1082,32 @@ mod tests {
     }
 
     #[test]
+    fn a_half_removed_repo_setup_does_not_silence_the_machine_hooks() {
+        let root = std::env::temp_dir().join(format!("collide-own-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join(".claude")).unwrap();
+        std::fs::create_dir_all(root.join(".codex")).unwrap();
+        std::fs::write(root.join(".claude/settings.json"), r#"{"hooks": {"x": ".collide/report_hook.py"}}"#).unwrap();
+        std::fs::write(root.join(".codex/hooks.json"), r#"{"hooks": {"x": ".collide/report_hook.py"}}"#).unwrap();
+        assert!(!repo_runs_its_own(&root), "settings naming a hook that is not there run nothing");
+        std::fs::create_dir_all(root.join(".collide")).unwrap();
+        std::fs::write(root.join(".collide/report_hook.py"), "").unwrap();
+        assert!(!repo_runs_its_own(&root), "a hook with no server to report to reports nothing");
+        std::fs::write(root.join(".collide/config.json"), r#"{"server_url": "https://mcp.collidemcp.com"}"#).unwrap();
+        assert!(repo_runs_its_own(&root), "a working repo setup keeps the machine's hooks out of its way");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn codex_and_cursor_get_the_machine_hooks_in_their_own_dialects() {
         let codex: Value = serde_json::from_str(&merge_codex_hooks(r#"{"hooks": {"Stop": [{"hooks": [{"command": "mine"}]}]}}"#)).unwrap();
         assert_eq!(codex["hooks"]["Stop"].as_array().unwrap().len(), 2, "theirs kept");
         assert!(codex["hooks"]["PreToolUse"][0]["hooks"][0]["command"].as_str().unwrap().contains("gate --harness codex"));
         assert_eq!(merge_codex_hooks(&merge_codex_hooks("")), merge_codex_hooks(""), "installing twice changes nothing");
+        let gates = codex["hooks"]["PreToolUse"].as_array().unwrap();
+        assert_eq!(gates.len(), 2, "the write gate and the shell gate");
+        assert_eq!(gates[0]["matcher"], "^(apply_patch|Edit|Write|MultiEdit|shell)$", "the trusted entry is unchanged");
+        assert_eq!(gates[1]["matcher"], "^Bash$");
         let cursor: Value = serde_json::from_str(&merge_cursor_hooks("")).unwrap();
         assert_eq!(cursor["version"], json!(1));
         assert!(cursor["hooks"]["beforeSubmitPrompt"][0]["command"].as_str().unwrap().contains("report --harness cursor"));
@@ -1030,6 +1128,11 @@ mod tests {
         assert!(merge_mcp_json("not json", Some(&entry)).is_none(), "a file that is not JSON is left alone");
 
         let toml = "model = \"o4\"\n\n[mcp_servers.other]\ncommand = \"x\"\n";
+        let theirs = "model = \"o3\"\n\n[mcp_servers.collide]\nurl = \"https://api.collidemcp.com/mcp\"\n\n[mcp_servers.collide.env]\nX = \"1\"\n\n[mcp_servers.other]\ncommand = \"x\"\n";
+        let taken = merge_codex_mcp(theirs, Some(&entry));
+        assert_eq!(taken.matches("[mcp_servers.collide]").count(), 1, "one collide table, never a duplicate key: {taken}");
+        assert!(!taken.contains("api.collidemcp.com") && !taken.contains("[mcp_servers.collide.env]"));
+        assert!(taken.contains("[mcp_servers.other]") && taken.contains("model = \"o3\""), "everything else stays");
         let once = merge_codex_mcp(toml, Some(&entry));
         assert_eq!(merge_codex_mcp(&once, Some(&entry)), once, "installing twice changes nothing");
         assert!(once.contains("[mcp_servers.other]") && once.contains("[mcp_servers.collide]\ncommand = \"/h/.collide/bin/collide\""), "{once}");
@@ -2003,4 +2106,65 @@ To share {repo_id} with a team: ~/.collide/bin/collide upgrade"
     let why = text(&answer, "error");
     println!("Collide: {} was not added{}.", cfg.repo_id, if why.is_empty() { String::new() } else { format!(" ({why})") });
     1
+}
+
+// ------------------------------------------------------------ Hermes
+
+const HERMES_PLUGIN: &str = include_str!("../assets/hermes/__init__.py");
+const HERMES_MANIFEST: &str = include_str!("../assets/hermes/plugin.yaml");
+
+fn hermes_home(env: &Env) -> PathBuf {
+    let given = config::get(env, "HERMES_HOME");
+    if given.is_empty() { PathBuf::from(crate::check::home(env)).join(".hermes") } else { PathBuf::from(given) }
+}
+
+/// The `hermes` program: on PATH, else where its installer puts it.
+fn hermes_program(env: &Env) -> Option<PathBuf> {
+    let on_path = std::env::var_os("PATH")
+        .and_then(|paths| std::env::split_paths(&paths).map(|d| d.join(exe("hermes"))).find(|p| p.is_file()));
+    on_path.or_else(|| {
+        let local = PathBuf::from(crate::check::home(env)).join(".local").join("bin").join(exe("hermes"));
+        local.is_file().then_some(local)
+    })
+}
+
+/// Hermes runs Collide through a plugin (its hooks and the messages pushed
+/// into its open conversations): written into ~/.hermes/plugins/collide,
+/// switched on with Hermes's own commands the first time (a plugin is off
+/// until enabled, and its message injection is off until granted). Later
+/// calls keep the files current. `None` where Hermes is not installed.
+pub fn install_hermes(env: &Env) -> Option<String> {
+    let home = hermes_home(env);
+    if !home.is_dir() {
+        return None;
+    }
+    let dir = home.join("plugins").join("collide");
+    let first = !dir.join("__init__.py").exists();
+    std::fs::create_dir_all(&dir).ok()?;
+    for (name, body) in [("__init__.py", HERMES_PLUGIN), ("plugin.yaml", HERMES_MANIFEST)] {
+        if std::fs::read_to_string(dir.join(name)).ok().as_deref() != Some(body) {
+            std::fs::write(dir.join(name), body).ok()?;
+        }
+    }
+    if first {
+        if let Some(hermes) = hermes_program(env) {
+            let quiet = |args: &[&str]| {
+                let _ = Command::new(&hermes).args(args).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
+            };
+            quiet(&["plugins", "enable", "collide"]);
+            quiet(&["config", "set", "plugins.entries.collide.allow_gateway_injection", "true"]);
+        }
+    }
+    Some(format!("Hermes ({})", dir.display()))
+}
+
+fn uninstall_hermes(env: &Env) {
+    let dir = hermes_home(env).join("plugins").join("collide");
+    if !dir.exists() {
+        return;
+    }
+    if let Some(hermes) = hermes_program(env) {
+        let _ = Command::new(&hermes).args(["plugins", "disable", "collide"]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
+    }
+    let _ = std::fs::remove_dir_all(dir);
 }

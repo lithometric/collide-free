@@ -21,6 +21,10 @@ pub fn evict_idle(_idle_s: f64) -> usize {
     0
 }
 
+pub fn shed_texts() -> usize {
+    0
+}
+
 pub fn persist_now() -> usize {
     0
 }

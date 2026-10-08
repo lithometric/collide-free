@@ -233,6 +233,7 @@ pub fn run(env: &Env) -> i32 {
         reopening: Mutex::new(()),
     });
     let mut running: Vec<std::thread::JoinHandle<()>> = Vec::new();
+    let mut mapped = false;
     for line in std::io::stdin().lock().lines() {
         let Ok(line) = line else { break };
         let line = line.trim().to_string();
@@ -253,6 +254,13 @@ pub fn run(env: &Env) -> i32 {
             // the session must exist before anything else is sent on it
             relay.handle(&line, &message);
             continue;
+        }
+        // the first tool call maps the repo it is made from, as the first
+        // hook call does: an agent that reaches Collide only through these
+        // tools still gets a graph, once per repo and server on this machine
+        if !mapped && method == "tools/call" {
+            mapped = true;
+            crate::machine::index_here(env);
         }
         running.retain(|t| !t.is_finished());
         let relay = Arc::clone(&relay);

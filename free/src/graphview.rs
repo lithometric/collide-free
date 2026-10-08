@@ -18,6 +18,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use collide_core::graph as core_graph;
 use serde_json::{json, Value};
 
+use crate::codegraph::FileRecord;
 use crate::store::Store;
 
 const GRAPH_BUCKET: &str = "graph";
@@ -77,12 +78,46 @@ pub struct NodeData {
     pub symbol: String,
     pub kind: String,
     pub language: String,
-    /// The exact facts a dependent carries (symbol nodes): where it lives,
-    /// what it takes, what it calls; and for file nodes, the names in scope.
-    pub span: Value,
-    pub params: Value,
-    pub sites: Value,
-    pub scope: Value,
+    /// The file's record, shared with the record set: the exact facts a
+    /// dependent carries (where it lives, what it takes, what it calls; for
+    /// a file, the names in scope) are read from it, not copied per node.
+    record: Option<Arc<FileRecord>>,
+}
+
+impl NodeData {
+    fn entry(&self) -> Option<&crate::codegraph::SymbolRecord> {
+        if self.symbol.is_empty() {
+            return None;
+        }
+        self.record.as_ref()?.symbol(&self.symbol)
+    }
+
+    pub fn span(&self) -> Value {
+        self.entry().map(|e| e.span.clone()).unwrap_or_else(|| json!([0, 0]))
+    }
+
+    pub fn params(&self) -> Value {
+        self.entry().map(|e| e.params.clone()).unwrap_or_else(|| json!([]))
+    }
+
+    pub fn sites(&self) -> Value {
+        self.entry().map(|e| e.sites.clone()).unwrap_or_else(|| json!([]))
+    }
+
+    /// A file node's names in scope: its top-level names and every name its
+    /// imports bind. Empty for every other node.
+    pub fn scope(&self) -> Value {
+        let Some(record) = self.record.as_ref().filter(|_| self.symbol.is_empty() && self.kind == "file") else {
+            return json!([]);
+        };
+        let mut scope: BTreeSet<&str> = record.symbols.iter().map(|s| s.name.as_str()).collect();
+        for local in &record.import_locals {
+            if !local.is_empty() && local != "*" {
+                scope.insert(local);
+            }
+        }
+        json!(scope.into_iter().collect::<Vec<_>>())
+    }
 }
 
 #[derive(Clone)]
@@ -103,6 +138,9 @@ pub struct Snapshot {
     /// Identifies this exact file set at these exact timestamps, so a cached
     /// clustering can be trusted only while the graph has not moved.
     pub fingerprint: String,
+    /// Assembled from a huge repo's working set: `Some(files in the repo)`.
+    /// Dependents outside the working set are then not in `incoming`.
+    pub partial: Option<usize>,
 }
 
 impl Snapshot {
@@ -137,9 +175,29 @@ impl Snapshot {
     pub fn internal_edge_count(&self) -> usize {
         self.out.values().flat_map(BTreeMap::keys).filter(|to| internal(to)).count()
     }
+
+    /// Roughly what this graph holds in memory, for the cache budget.
+    fn approx_bytes(&self) -> usize {
+        let nodes: usize = self.nodes.iter().map(|(id, n)| 200 + id.len() + n.path.len() + n.symbol.len()).sum();
+        let out: usize = self.out.iter().map(|(from, m)| 80 + from.len() + m.keys().map(|to| 96 + to.len()).sum::<usize>()).sum();
+        let incoming: usize = self.incoming.iter().map(|(to, set)| 80 + to.len() + set.iter().map(|f| 48 + f.len()).sum::<usize>()).sum();
+        nodes + out + incoming
+    }
+
+    /// A copy, for a patch when another holder still has this graph.
+    fn duplicate(&self) -> Snapshot {
+        Snapshot {
+            nodes: self.nodes.clone(),
+            out: self.out.clone(),
+            incoming: self.incoming.clone(),
+            files: self.files,
+            fingerprint: self.fingerprint.clone(),
+            partial: self.partial,
+        }
+    }
 }
 
-fn records(store: &Store, scope: &str) -> BTreeMap<String, Arc<Value>> {
+fn records(store: &Store, scope: &str) -> BTreeMap<String, Arc<FileRecord>> {
     crate::codegraph::records_shared(store, scope)
         .iter()
         .filter(|(path, _)| !crate::codegraph::is_collide_artifact(path))
@@ -149,85 +207,28 @@ fn records(store: &Store, scope: &str) -> BTreeMap<String, Arc<Value>> {
 
 /// Identifies a file set at given timestamps. Python builds it over sorted
 /// paths, and a BTreeMap is already sorted.
-fn fingerprint(records: &BTreeMap<String, Arc<Value>>) -> String {
+fn fingerprint(records: &BTreeMap<String, Arc<FileRecord>>) -> String {
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     for (path, record) in records {
-        let ts = record.get("ts").and_then(Value::as_f64).unwrap_or(0.0);
         // serde_json writes a float the way Python's str() does, which the
         // chain hash already depends on — the same agreement is what makes
         // this fingerprint comparable across the two servers
-        let ts = serde_json::to_string(&json!(ts)).unwrap_or_else(|_| "0.0".into());
+        let ts = serde_json::to_string(&json!(record.ts)).unwrap_or_else(|_| "0.0".into());
         hasher.update(format!("{path}:{ts}\n").as_bytes());
     }
     format!("{:x}", hasher.finalize())[..16].to_string()
 }
 
-fn indexes(records: &BTreeMap<String, Arc<Value>>) -> (BTreeSet<String>, BTreeMap<String, Vec<String>>) {
+fn indexes(records: &BTreeMap<String, Arc<FileRecord>>) -> (BTreeSet<String>, BTreeMap<String, Vec<String>>) {
     let known: BTreeSet<String> = records.keys().cloned().collect();
     let mut names: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (path, record) in records {
-        let Some(symbols) = record.get("symbols").and_then(Value::as_object) else { continue };
-        for name in symbols.keys() {
-            names.entry(name.clone()).or_default().push(path.clone());
-            let bare = name.rsplit("::").next().unwrap_or(name).rsplit('.').next().unwrap_or(name);
-            if bare != name {
-                names.entry(bare.to_string()).or_default().push(path.clone());
-            }
+        for name in crate::codegraph::contributions_of(record) {
+            names.entry(name).or_default().push(path.clone());
         }
     }
     (known, names)
-}
-
-fn edge_tuples(entry: &Value) -> Vec<(String, String, String)> {
-    entry
-        .get("edges")
-        .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|edge| {
-                    let edge = edge.as_array()?;
-                    Some((
-                        edge.first()?.as_str()?.to_string(),
-                        edge.get(1)?.as_str()?.to_string(),
-                        edge.get(2)?.as_str()?.to_string(),
-                    ))
-                })
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn import_specs(record: &Value) -> Vec<core_graph::ImportSpec> {
-    record
-        .get("imports")
-        .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .map(|item| core_graph::ImportSpec {
-                    module: item.get("module").and_then(Value::as_str).unwrap_or("").to_string(),
-                    names: item
-                        .get("names")
-                        .and_then(Value::as_array)
-                        .map(|pairs| {
-                            pairs
-                                .iter()
-                                .filter_map(|pair| {
-                                    let pair = pair.as_array()?;
-                                    Some((
-                                        pair.first()?.as_str()?.to_string(),
-                                        pair.get(1)?.as_str()?.to_string(),
-                                    ))
-                                })
-                                .collect()
-                        })
-                        .unwrap_or_default(),
-                })
-                .collect()
-        })
-        .unwrap_or_default()
 }
 
 /// One resolved edge: (from, to, kind, confidence).
@@ -238,7 +239,7 @@ type Resolved = (String, String, String, String);
 /// looked up in the name index; a file whose names are untouched by an edit
 /// resolves exactly as before, which is what makes patching exact.
 struct Built {
-    records: BTreeMap<String, Arc<Value>>,
+    records: BTreeMap<String, Arc<FileRecord>>,
     known: BTreeSet<String>,
     names: BTreeMap<String, Vec<String>>,
     deps: HashMap<String, BTreeSet<String>>,
@@ -253,62 +254,39 @@ fn built_cache() -> &'static BuiltCache {
 }
 
 /// The nodes one record contributes: its file, then each symbol.
-fn file_nodes(path: &str, record: &Value) -> Vec<(String, NodeData)> {
-    let language = record.get("language").and_then(Value::as_str).unwrap_or("").to_string();
-    // what a symbol in this file can see without an import of its own:
-    // the file's top-level names and every name its imports bind
-    let mut scope: BTreeSet<String> = record
-        .get("symbols").and_then(Value::as_object)
-        .map(|m| m.keys().cloned().collect()).unwrap_or_default();
-    for import in record.get("imports").and_then(Value::as_array).into_iter().flatten() {
-        for pair in import.get("names").and_then(Value::as_array).into_iter().flatten() {
-            if let Some(local) = pair.get(0).and_then(Value::as_str) {
-                if !local.is_empty() && local != "*" {
-                    scope.insert(local.to_string());
-                }
-            }
-        }
-    }
+fn file_nodes(path: &str, record: &Arc<FileRecord>) -> Vec<(String, NodeData)> {
     let mut out = vec![(node_id(path, ""), NodeData {
         path: path.to_string(), symbol: String::new(),
-        kind: "file".into(), language: language.clone(),
-        span: json!([0, 0]), params: json!([]), sites: json!([]),
-        scope: json!(scope.into_iter().collect::<Vec<_>>()),
+        kind: "file".into(), language: record.language.clone(),
+        record: Some(Arc::clone(record)),
     })];
-    if let Some(symbols) = record.get("symbols").and_then(Value::as_object) {
-        for (name, entry) in symbols {
-            out.push((node_id(path, name), NodeData {
-                path: path.to_string(),
-                symbol: name.clone(),
-                kind: entry.get("kind").and_then(Value::as_str).unwrap_or("definition").into(),
-                language: language.clone(),
-                span: entry.get("span").cloned().unwrap_or(json!([0, 0])),
-                params: entry.get("params").cloned().unwrap_or(json!([])),
-                sites: entry.get("sites").cloned().unwrap_or(json!([])),
-                scope: json!([]),
-            }));
-        }
+    for symbol in &record.symbols {
+        out.push((node_id(path, &symbol.name), NodeData {
+            path: path.to_string(),
+            symbol: symbol.name.clone(),
+            kind: symbol.kind.clone(),
+            language: record.language.clone(),
+            record: Some(Arc::clone(record)),
+        }));
     }
     out
 }
 
 /// Every name `resolve_edges` can look up in the name index for this
 /// record: its raw edges' targets and members, and what its imports bind.
-fn name_deps(record: &Value) -> BTreeSet<String> {
+fn name_deps(record: &FileRecord) -> BTreeSet<String> {
     let mut deps = BTreeSet::new();
-    if let Some(symbols) = record.get("symbols").and_then(Value::as_object) {
-        for entry in symbols.values() {
-            for (target, member, _) in edge_tuples(entry) {
-                deps.insert(target);
-                if !member.is_empty() {
-                    deps.insert(member);
-                }
+    for symbol in &record.symbols {
+        for (target, member, _) in &symbol.edges {
+            deps.insert(target.clone());
+            if !member.is_empty() {
+                deps.insert(member.clone());
             }
         }
     }
-    for spec in import_specs(record) {
-        for (_, original) in spec.names {
-            deps.insert(original);
+    for spec in &record.imports {
+        for (_, original) in &spec.names {
+            deps.insert(original.clone());
         }
     }
     deps
@@ -320,39 +298,17 @@ fn name_deps(record: &Value) -> BTreeSet<String> {
 /// were resolved against the names of that moment, and a teammate adding a
 /// function since can move where a call lands.
 fn resolve_file(
-    path: &str, record: &Value, known: &BTreeSet<String>, names: &BTreeMap<String, Vec<String>>,
+    path: &str, record: &FileRecord, known: &BTreeSet<String>, names: &BTreeMap<String, Vec<String>>,
 ) -> Vec<Resolved> {
-    if crate::compat::truthy(record.get("imported")) {
-        return record
-            .get("edges")
-            .and_then(Value::as_array)
-            .map(|items| {
-                items
-                    .iter()
-                    .filter_map(|edge| {
-                        Some((
-                            edge.get("from")?.as_str()?.to_string(),
-                            edge.get("to")?.as_str()?.to_string(),
-                            edge.get("kind")?.as_str()?.to_string(),
-                            edge.get("confidence")?.as_str()?.to_string(),
-                        ))
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
+    if record.imported {
+        return record.imported_edges.clone();
     }
-    let language = record.get("language").and_then(Value::as_str).unwrap_or("");
-    let symbols_map = record.get("symbols").and_then(Value::as_object).cloned().unwrap_or_default();
-    let raw: Vec<(String, Vec<(String, String, String)>)> = symbols_map
+    let symbols: Vec<core_graph::SymbolEdges> = record
+        .symbols
         .iter()
-        .map(|(name, entry)| (name.clone(), edge_tuples(entry)))
+        .map(|symbol| core_graph::SymbolEdges { name: &symbol.name, edges: &symbol.edges })
         .collect();
-    let symbols: Vec<core_graph::SymbolEdges> = raw
-        .iter()
-        .map(|(name, edges)| core_graph::SymbolEdges { name, edges })
-        .collect();
-    let imports = import_specs(record);
-    core_graph::resolve_edges(path, language, &symbols, &imports, known, names)
+    core_graph::resolve_edges(path, &record.language, &symbols, &record.imports, known, names)
         .into_iter()
         .map(|edge| (edge.from, edge.to, edge.kind, edge.confidence.to_string()))
         .collect()
@@ -364,11 +320,7 @@ fn placeholder(to: &str) -> NodeData {
     // information rather than an error: the node is created so the
     // dependency is visible, marked for what it is
     if let Some(name) = to.strip_prefix("ext:") {
-        NodeData {
-            path: String::new(), symbol: name.to_string(),
-            kind: "external".into(), language: String::new(),
-            span: json!([0, 0]), params: json!([]), sites: json!([]), scope: json!([]),
-        }
+        NodeData { path: String::new(), symbol: name.to_string(), kind: "external".into(), language: String::new(), record: None }
     } else {
         let (to_path, to_symbol) = split_node(to);
         NodeData {
@@ -376,7 +328,7 @@ fn placeholder(to: &str) -> NodeData {
             symbol: to_symbol.to_string(),
             kind: if to_symbol.is_empty() { "file".into() } else { "unknown".into() },
             language: String::new(),
-            span: json!([0, 0]), params: json!([]), sites: json!([]), scope: json!([]),
+            record: None,
         }
     }
 }
@@ -391,14 +343,23 @@ fn add_resolved(graph: &mut Snapshot, resolved: Vec<Resolved>) {
     }
 }
 
+/// The file set and name index a graph resolves against: the records' own,
+/// or — for a huge repo's working set — the whole repo's (`whole`), so an
+/// import of a file outside the working set still resolves.
+type Index = (BTreeSet<String>, BTreeMap<String, Vec<String>>);
+
 /// Assemble the whole graph from scratch: every file's nodes, then every
 /// file's edges in path order. Resolving is a pure function of one record
 /// and the file set, so every file resolves on its own core.
-fn full_build(records: BTreeMap<String, Arc<Value>>) -> Built {
-    let (known, names) = indexes(&records);
+fn full_build(records: BTreeMap<String, Arc<FileRecord>>, whole: Option<(Index, usize)>) -> Built {
+    let (partial, (known, names)) = match whole {
+        Some((index, total)) => (Some(total), index),
+        None => (None, indexes(&records)),
+    };
     let mut graph = Snapshot {
         files: records.len(),
         fingerprint: fingerprint(&records),
+        partial,
         ..Default::default()
     };
     for (path, record) in &records {
@@ -407,7 +368,7 @@ fn full_build(records: BTreeMap<String, Arc<Value>>) -> Built {
         }
     }
     use rayon::prelude::*;
-    let ordered: Vec<(&String, &Arc<Value>)> = records.iter().collect();
+    let ordered: Vec<(&String, &Arc<FileRecord>)> = records.iter().collect();
     let resolved_all: Vec<Vec<Resolved>> = ordered
         .par_iter()
         .map(|(path, record)| resolve_file(path, record, &known, &names))
@@ -421,24 +382,28 @@ fn full_build(records: BTreeMap<String, Arc<Value>>) -> Built {
 
 /// Move a built graph to a new record set, re-resolving only what the change
 /// can reach: the changed files, and files that look up a name whose
-/// definitions moved. `None` when the file set itself changed (a file came
-/// or went — module paths can then resolve differently anywhere), which is
+/// definitions moved. The previous graph is taken, not copied: the patch
+/// edits it in place, so a big repo never holds two graphs at once (a
+/// holder still reading the old one is the exception, and gets its copy).
+/// `Err` hands both back when the file set itself changed (a file came or
+/// went — module paths can then resolve differently anywhere), which is
 /// rare enough to rebuild for.
-fn patch(prev: &Built, records: BTreeMap<String, Arc<Value>>) -> Option<Built> {
+#[allow(clippy::result_large_err)]
+fn patch(prev: Built, records: BTreeMap<String, Arc<FileRecord>>) -> Result<Built, (Built, BTreeMap<String, Arc<FileRecord>>)> {
     if records.len() != prev.records.len() || !records.keys().eq(prev.records.keys()) {
-        return None;
+        return Err((prev, records));
     }
+    let Built { records: old_records, known, mut names, mut deps, graph: old_graph } = prev;
     let changed: Vec<String> = records
         .iter()
-        .filter(|(path, record)| !Arc::ptr_eq(record, &prev.records[*path]))
+        .filter(|(path, record)| !Arc::ptr_eq(record, &old_records[*path]))
         .map(|(path, _)| path.clone())
         .collect();
     // the name index, moved: names whose definition list changed are the
     // ones another file's resolution could see differently
-    let mut names = prev.names.clone();
     let mut moved: BTreeSet<String> = BTreeSet::new();
     for path in &changed {
-        let before = crate::codegraph::contributions_of(&prev.records[path]);
+        let before = crate::codegraph::contributions_of(&old_records[path]);
         let after = crate::codegraph::contributions_of(&records[path]);
         fn count(items: &[String]) -> BTreeMap<&str, usize> {
             let mut c: BTreeMap<&str, usize> = BTreeMap::new();
@@ -462,6 +427,7 @@ fn patch(prev: &Built, records: BTreeMap<String, Arc<Value>>) -> Option<Built> {
             }
         }
     }
+    drop(old_records);
     for path in &changed {
         for name in crate::codegraph::contributions_of(&records[path]) {
             let paths = names.entry(name).or_default();
@@ -469,7 +435,6 @@ fn patch(prev: &Built, records: BTreeMap<String, Arc<Value>>) -> Option<Built> {
             paths.insert(at, path.clone());
         }
     }
-    let mut deps = prev.deps.clone();
     for path in &changed {
         deps.insert(path.clone(), name_deps(&records[path]));
     }
@@ -482,13 +447,9 @@ fn patch(prev: &Built, records: BTreeMap<String, Arc<Value>>) -> Option<Built> {
         }
     }
 
-    let mut graph = Snapshot {
-        nodes: prev.graph.nodes.clone(),
-        out: prev.graph.out.clone(),
-        incoming: prev.graph.incoming.clone(),
-        files: records.len(),
-        fingerprint: fingerprint(&records),
-    };
+    let mut graph = Arc::try_unwrap(old_graph).unwrap_or_else(|shared| shared.duplicate());
+    graph.files = records.len();
+    graph.fingerprint = fingerprint(&records);
     // take out what the redone files contributed: their outgoing edges, and
     // the changed files' own nodes
     let mut targets: BTreeSet<String> = BTreeSet::new();
@@ -527,9 +488,7 @@ fn patch(prev: &Built, records: BTreeMap<String, Arc<Value>>) -> Option<Built> {
     // is gone in a full build too
     for id in &targets {
         let (path, symbol) = split_node(id);
-        let real = !id.starts_with("ext:") && records.get(path).is_some_and(|record| {
-            symbol.is_empty() || record.get("symbols").and_then(Value::as_object).is_some_and(|m| m.contains_key(symbol))
-        });
+        let real = !id.starts_with("ext:") && records.get(path).is_some_and(|record| symbol.is_empty() || record.has_symbol(symbol));
         if real {
             continue;
         }
@@ -543,12 +502,12 @@ fn patch(prev: &Built, records: BTreeMap<String, Arc<Value>>) -> Option<Built> {
     // then the redone files' edges, in path order
     let mut resolved: Vec<Vec<Resolved>> = Vec::new();
     for path in &redo {
-        resolved.push(resolve_file(path, &records[path], &prev.known, &names));
+        resolved.push(resolve_file(path, &records[path], &known, &names));
     }
     for batch in resolved {
         add_resolved(&mut graph, batch);
     }
-    Some(Built { records, known: prev.known.clone(), names, deps, graph: Arc::new(graph) })
+    Ok(Built { records, known, names, deps, graph: Arc::new(graph) })
 }
 
 /// The whole graph, resolved against the current file set.
@@ -559,6 +518,10 @@ fn patch(prev: &Built, records: BTreeMap<String, Arc<Value>>) -> Option<Built> {
 /// teammate's "what changed" call paid it, and all of them at once after
 /// each report — was what capped a busy repo. One caller builds while the
 /// others wait for it, rather than each building the same graph.
+///
+/// A repo past [`crate::codegraph::resident_limit`] files is assembled from
+/// its working set (the files most recently written or read) against the
+/// whole repo's name index: memory follows the work, not the repo's size.
 pub fn snapshot(store: &Store, scope: &str) -> Arc<Snapshot> {
     // the cheap test first: the graph rows' count and newest write. Only when
     // they moved is anything read (and then only what changed, see
@@ -567,6 +530,7 @@ pub fn snapshot(store: &Store, scope: &str) -> Arc<Snapshot> {
     let stat_key = format!("{}:{}", stat.0, stat.1);
     let stamp = crate::store::now();
     let cache_key = store.cache_key(scope);
+    crate::membudget::touch(&cache_key);
     let fresh = |stat_key: &str| -> Option<Arc<Snapshot>> {
         let cache = snapshot_cache().lock().ok()?;
         let (seen, graph, at) = cache.get(&cache_key)?;
@@ -589,22 +553,41 @@ pub fn snapshot(store: &Store, scope: &str) -> Arc<Snapshot> {
         return graph;
     }
     let records = records(store, scope);
-    let next = match built.as_ref().and_then(|prev| patch(prev, records.clone())) {
-        Some(next) => next,
-        None => full_build(records),
+    let (total, partial) = crate::codegraph::file_count(store, scope);
+    // the cache's copy of the old graph goes first, so the patch below can
+    // take the graph instead of copying it
+    if let Ok(mut cache) = snapshot_cache().lock() {
+        cache.remove(&cache_key);
+    }
+    let whole = || partial.then(|| (crate::codegraph::with_index(store, scope, |k, n| (k.clone(), n.clone())), total));
+    let next = match built.take() {
+        Some(prev) => match patch(prev, records) {
+            Ok(next) => next,
+            Err((prev, records)) => {
+                // the old graph leaves memory before the new one is built
+                drop(prev);
+                full_build(records, whole())
+            }
+        },
+        None => full_build(records, whole()),
     };
     let graph = Arc::clone(&next.graph);
+    let bytes = next.graph.approx_bytes()
+        + next.deps.iter().map(|(p, d)| 64 + p.len() + d.iter().map(|n| 32 + n.len()).sum::<usize>()).sum::<usize>()
+        + next.names.iter().map(|(n, ps)| 72 + n.len() + ps.iter().map(|p| 24 + p.len()).sum::<usize>()).sum::<usize>();
     *built = Some(next);
+    drop(built);
     if let Ok(mut cache) = snapshot_cache().lock() {
-        cache.insert(cache_key, (stat_key, Arc::clone(&graph), stamp));
+        cache.insert(cache_key.clone(), (stat_key, Arc::clone(&graph), stamp));
     }
+    crate::membudget::report(&cache_key, crate::membudget::Part::Graph, bytes);
     graph
 }
 
 /// A full build of the same records, for tests that hold a patch to it.
 #[cfg(test)]
 fn rebuilt(store: &Store, scope: &str) -> Arc<Snapshot> {
-    full_build(records(store, scope)).graph
+    full_build(records(store, scope), None).graph
 }
 
 /// The partition, cached on the same fingerprint. Louvain is the single most
@@ -632,15 +615,56 @@ pub fn communities_cached(
 pub fn evict_idle(idle_s: f64) -> usize {
     let cutoff = crate::store::now() - idle_s;
     let mut kept: Vec<String> = Vec::new();
-    let mut dropped = 0;
+    let mut gone: Vec<String> = Vec::new();
     if let Ok(mut cache) = snapshot_cache().lock() {
-        let before = cache.len();
-        cache.retain(|_, entry| entry.2 >= cutoff);
-        dropped = before - cache.len();
+        cache.retain(|key, entry| {
+            let keep = entry.2 >= cutoff;
+            if !keep {
+                gone.push(key.clone());
+            }
+            keep
+        });
         kept = cache.keys().cloned().collect();
+    }
+    // the patch state goes with its snapshot: it holds the same graph
+    if let Ok(mut built) = built_cache().lock() {
+        for key in &gone {
+            built.remove(key);
+        }
     }
     if let Ok(mut cache) = community_cache().lock() {
         cache.retain(|key, _| kept.iter().any(|k| k.ends_with(&format!("#{key}")) || k == key));
+    }
+    gone.len()
+}
+
+/// Drop one repo's graph, its patch state and its partition (the memory
+/// budget's eviction).
+pub fn evict_key(key: &str) {
+    if let Ok(mut cache) = snapshot_cache().lock() {
+        cache.remove(key);
+    }
+    if let Ok(mut built) = built_cache().lock() {
+        built.remove(key);
+    }
+    let scope = key.split_once('#').map(|(_, s)| s).unwrap_or(key);
+    if let Ok(mut cache) = community_cache().lock() {
+        cache.remove(scope);
+    }
+}
+
+/// Drop every repo's graph (memory pressure).
+pub fn evict_all() -> usize {
+    let mut dropped = 0;
+    if let Ok(mut cache) = snapshot_cache().lock() {
+        dropped = cache.len();
+        cache.clear();
+    }
+    if let Ok(mut built) = built_cache().lock() {
+        built.clear();
+    }
+    if let Ok(mut cache) = community_cache().lock() {
+        cache.clear();
     }
     dropped
 }
@@ -1515,7 +1539,8 @@ pub fn conventions(graph: &Snapshot, budget: usize) -> Vec<Value> {
         if !internal(nid) || matches!(data.kind.as_str(), "file" | "external" | "unknown" | "class") {
             continue;
         }
-        let Some(first) = data.params.as_array().and_then(|p| p.first()) else { continue };
+        let params = data.params();
+        let Some(first) = params.as_array().and_then(|p| p.first()) else { continue };
         if data.path.is_empty() {
             continue;
         }
@@ -1812,7 +1837,7 @@ pub fn blast_radius(graph: &Snapshot, nid: &str, depth: usize) -> Vec<Vec<Value>
                 // the dependent lives, what it takes, what it passes, what it
                 // can see — the parser's answers, not a model's
                 let scope = if data.path.is_empty() { json!([]) } else {
-                    graph.nodes.get(&node_id(&data.path, "")).map(|f| f.scope.clone()).unwrap_or(json!([]))
+                    graph.nodes.get(&node_id(&data.path, "")).map(NodeData::scope).unwrap_or(json!([]))
                 };
                 // only how it uses what it depends on: a call of that symbol,
                 // or a call passing something named after it. Every other call
@@ -1820,19 +1845,24 @@ pub fn blast_radius(graph: &Snapshot, nid: &str, depth: usize) -> Vec<Vec<Value>
                 // after it (load_demo listed date(), timedelta() under Order)
                 // none matching means the call goes through an alias (`import
                 // compute_tax as tax`): then the dependent's calls, capped
-                let sites: Vec<&Value> = data.sites.as_array().into_iter().flatten().collect();
+                let all_sites = data.sites();
+                let sites: Vec<&Value> = all_sites.as_array().into_iter().flatten().collect();
                 let using: Vec<&Value> = sites.iter().copied().filter(|s| call_uses(s, node)).collect();
                 let calls: Vec<Value> = (if using.is_empty() { sites } else { using }).into_iter()
                     .take(BLAST_CALLS)
                     .filter_map(|s| Some(json!({"name": s.get(0)?, "line": s.get(1)?, "args": s.get(2)?})))
                     .collect();
+                let span = data.span();
+                let span = if span.is_null() { json!([0, 0]) } else { span };
+                let params = data.params();
+                let params = if params.is_null() { json!([]) } else { params };
                 next.push(json!({
                     "id": pred, "path": data.path, "symbol": data.symbol, "kind": data.kind,
                     "via": edge.map(|e| e.kind.as_str()).unwrap_or(""),
                     "confidence": edge.map(|e| e.confidence.as_str()).unwrap_or(""),
                     "through": node,
-                    "span": if data.span.is_null() { json!([0, 0]) } else { data.span },
-                    "params": if data.params.is_null() { json!([]) } else { data.params },
+                    "span": span,
+                    "params": params,
                     "calls": calls,
                     "scope": scope,
                 }));
@@ -3152,7 +3182,7 @@ mod patch_tests {
     type Flat = (Vec<(String, String, String, String, String)>, Vec<(String, String, String, String)>, Vec<(String, Vec<String>)>);
 
     fn flat(g: &Snapshot) -> Flat {
-        let nodes = g.nodes.iter().map(|(id, n)| (id.clone(), n.kind.clone(), n.path.clone(), n.symbol.clone(), format!("{}{}{}{}", n.language, n.span, n.params, n.scope))).collect();
+        let nodes = g.nodes.iter().map(|(id, n)| (id.clone(), n.kind.clone(), n.path.clone(), n.symbol.clone(), format!("{}{}{}{}", n.language, n.span(), n.params(), n.scope()))).collect();
         let out = g.out.iter().flat_map(|(from, m)| m.iter().map(move |(to, e)| (from.clone(), to.clone(), e.kind.clone(), e.confidence.clone()))).collect();
         let incoming = g.incoming.iter().filter(|(_, s)| !s.is_empty()).map(|(to, s)| (to.clone(), s.iter().cloned().collect())).collect();
         (nodes, out, incoming)

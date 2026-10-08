@@ -36,59 +36,319 @@ pub(crate) fn paths_fingerprint(known: &BTreeSet<String>) -> String {
     format!("{:x}", hasher.finalize())[..16].to_string()
 }
 
-type Records = std::sync::Arc<BTreeMap<String, std::sync::Arc<Value>>>;
-static RECORDS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<String, ((i64, f64), Records, f64)>>> =
+/// One file's graph record as the graph reads it: the parts graph assembly,
+/// the name index and a blast radius use, typed. The stored row also holds
+/// docstrings, signatures, hashes and the edges resolved at write time;
+/// none of that is read from here (briefings read the row itself), and held
+/// as JSON objects per file it was most of what a big repo cost in memory.
+#[derive(Default)]
+pub struct FileRecord {
+    pub language: String,
+    pub ts: f64,
+    /// brought in by graph_import: keeps the edges it came with
+    pub imported: bool,
+    pub imported_edges: Vec<(String, String, String, String)>,
+    pub imports: Vec<core_graph::ImportSpec>,
+    /// every import's local name, string or not paired, for a file's scope
+    pub import_locals: Vec<String>,
+    /// in the row's own order
+    pub symbols: Vec<SymbolRecord>,
+}
+
+pub struct SymbolRecord {
+    pub name: String,
+    pub kind: String,
+    /// raw edges: (target name, member accessed on it, edge kind)
+    pub edges: Vec<(String, String, String)>,
+    pub span: Value,
+    pub params: Value,
+    pub sites: Value,
+}
+
+impl FileRecord {
+    pub fn from_value(record: &Value) -> Self {
+        let symbols = record
+            .get("symbols")
+            .and_then(Value::as_object)
+            .map(|map| {
+                map.iter()
+                    .map(|(name, entry)| SymbolRecord {
+                        name: name.clone(),
+                        kind: entry.get("kind").and_then(Value::as_str).unwrap_or("definition").to_string(),
+                        edges: edge_tuples_raw(entry),
+                        span: entry.get("span").cloned().unwrap_or(json!([0, 0])),
+                        params: entry.get("params").cloned().unwrap_or(json!([])),
+                        sites: entry.get("sites").cloned().unwrap_or(json!([])),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let imported = crate::compat::truthy(record.get("imported"));
+        let imported_edges = if imported {
+            record
+                .get("edges")
+                .and_then(Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|edge| {
+                            Some((
+                                edge.get("from")?.as_str()?.to_string(),
+                                edge.get("to")?.as_str()?.to_string(),
+                                edge.get("kind")?.as_str()?.to_string(),
+                                edge.get("confidence")?.as_str()?.to_string(),
+                            ))
+                        })
+                        .collect()
+                })
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        let mut import_locals = Vec::new();
+        for import in record.get("imports").and_then(Value::as_array).into_iter().flatten() {
+            for pair in import.get("names").and_then(Value::as_array).into_iter().flatten() {
+                if let Some(local) = pair.get(0).and_then(Value::as_str) {
+                    import_locals.push(local.to_string());
+                }
+            }
+        }
+        FileRecord {
+            language: record.get("language").and_then(Value::as_str).unwrap_or("").to_string(),
+            ts: record.get("ts").and_then(Value::as_f64).unwrap_or(0.0),
+            imported,
+            imported_edges,
+            imports: import_specs_of(record),
+            import_locals,
+            symbols,
+        }
+    }
+
+    pub fn has_symbol(&self, name: &str) -> bool {
+        self.symbols.iter().any(|s| s.name == name)
+    }
+
+    pub fn symbol(&self, name: &str) -> Option<&SymbolRecord> {
+        self.symbols.iter().find(|s| s.name == name)
+    }
+
+    /// Roughly what this record holds in memory, for the cache budget.
+    pub fn approx_bytes(&self) -> usize {
+        let mut n = 160 + self.language.len();
+        for (a, b, c, d) in &self.imported_edges {
+            n += 96 + a.len() + b.len() + c.len() + d.len();
+        }
+        for spec in &self.imports {
+            n += 48 + spec.module.len();
+            for (a, b) in &spec.names {
+                n += 48 + a.len() + b.len();
+            }
+        }
+        for local in &self.import_locals {
+            n += 24 + local.len();
+        }
+        for symbol in &self.symbols {
+            n += 200 + symbol.name.len() + symbol.kind.len()
+                + value_bytes(&symbol.span) + value_bytes(&symbol.params) + value_bytes(&symbol.sites);
+            for (a, b, c) in &symbol.edges {
+                n += 72 + a.len() + b.len() + c.len();
+            }
+        }
+        n
+    }
+}
+
+/// Roughly what a JSON value holds in memory.
+pub fn value_bytes(value: &Value) -> usize {
+    match value {
+        Value::String(s) => 32 + s.len(),
+        Value::Array(items) => 32 + items.iter().map(value_bytes).sum::<usize>(),
+        Value::Object(map) => 64 + map.iter().map(|(k, v)| 48 + k.len() + value_bytes(v)).sum::<usize>(),
+        _ => 32,
+    }
+}
+
+fn edge_tuples_raw(entry: &Value) -> Vec<(String, String, String)> {
+    entry
+        .get("edges")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|edge| {
+                    let edge = edge.as_array()?;
+                    Some((
+                        edge.first()?.as_str()?.to_string(),
+                        edge.get(1)?.as_str()?.to_string(),
+                        edge.get(2)?.as_str()?.to_string(),
+                    ))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn import_specs_of(record: &Value) -> Vec<core_graph::ImportSpec> {
+    record
+        .get("imports")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .map(|item| core_graph::ImportSpec {
+                    module: item.get("module").and_then(Value::as_str).unwrap_or("").to_string(),
+                    names: item
+                        .get("names")
+                        .and_then(Value::as_array)
+                        .map(|pairs| {
+                            pairs
+                                .iter()
+                                .filter_map(|pair| {
+                                    let pair = pair.as_array()?;
+                                    Some((pair.first()?.as_str()?.to_string(), pair.get(1)?.as_str()?.to_string()))
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+pub type Records = std::sync::Arc<BTreeMap<String, std::sync::Arc<FileRecord>>>;
+
+struct HeldRecords {
+    stat: (i64, f64),
+    records: Records,
+    bytes: usize,
+}
+
+static RECORDS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<String, HeldRecords>>> =
     std::sync::OnceLock::new();
 
-/// Every graph record of a repo, path to record, parsed once and kept.
-/// Reading and parsing every row per call was the whole-graph cost behind
-/// each snapshot check (every hook event's deltas, every briefing): on a
-/// 3,000-file repo about half a second. The copy catches up by reading only
-/// rows written since it was last in step, and reloads in full only when a
-/// row disappeared. Records are shared, so handing them out copies nothing.
+fn records_cache() -> &'static std::sync::Mutex<std::collections::HashMap<String, HeldRecords>> {
+    RECORDS.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
+}
+
+/// Past this many files a repo's map stays on disk except for its working
+/// set: the files most recently written or read, up to this many. The rest
+/// are still in the name index (imports resolve against the whole repo) and
+/// in the reverse index on disk; they join the working set the moment an
+/// agent touches them. `COLLIDE_RESIDENT_FILES` tunes it.
+pub fn resident_limit() -> usize {
+    #[cfg(test)]
+    if let Some(limit) = TEST_LIMIT.with(|l| l.get()) {
+        return limit;
+    }
+    static LIMIT: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    *LIMIT.get_or_init(|| {
+        std::env::var("COLLIDE_RESIDENT_FILES").ok().and_then(|v| v.trim().parse().ok()).unwrap_or(8_000)
+    })
+}
+
+#[cfg(test)]
+thread_local! {
+    static TEST_LIMIT: std::cell::Cell<Option<usize>> = const { std::cell::Cell::new(None) };
+}
+
+#[cfg(test)]
+pub fn set_test_resident_limit(limit: Option<usize>) {
+    TEST_LIMIT.with(|l| l.set(limit));
+}
+
+/// How many files this repo's map holds on disk, and whether only a working
+/// set of them is kept in memory.
+pub fn file_count(store: &Store, scope: &str) -> (usize, bool) {
+    let total = store.kv_stat(GRAPH_BUCKET, &format!("{scope}:")).0.max(0) as usize;
+    (total, total > resident_limit())
+}
+
+fn path_of(record: &Value) -> Option<String> {
+    record.get("path").and_then(Value::as_str).map(str::to_string)
+}
+
+/// Every graph record of a repo (or, past [`resident_limit`], its working
+/// set), path to record, parsed once and kept. The copy catches up by
+/// reading only rows written since it was last in step, and reloads only
+/// when a row disappeared. Records are shared, so handing them out copies
+/// nothing.
 pub fn records_shared(store: &Store, scope: &str) -> Records {
     let prefix = format!("{scope}:");
     let stat = store.kv_stat(GRAPH_BUCKET, &prefix);
-    let cache = RECORDS.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()));
     let key = store.cache_key(scope);
-    let held = cache.lock().ok().and_then(|mut c| {
-        let entry = c.get_mut(&key)?;
-        entry.2 = crate::store::now();
-        Some((entry.0, entry.1.clone()))
-    });
-    if let Some((seen, records)) = &held {
+    crate::membudget::touch(&key);
+    let held = records_cache().lock().ok().and_then(|c| c.get(&key).map(|h| (h.stat, h.records.clone(), h.bytes)));
+    if let Some((seen, records, _)) = &held {
         if *seen == stat {
             return records.clone();
         }
     }
-    let mut map: BTreeMap<String, std::sync::Arc<Value>> = match &held {
-        Some((seen, records)) if stat.0 >= seen.0 => {
-            let mut next = (**records).clone();
-            for (_key, record, _updated) in store.kv_list_since(GRAPH_BUCKET, &prefix, seen.1) {
-                if let Some(path) = record.get("path").and_then(Value::as_str).map(str::to_string) {
-                    next.insert(path, std::sync::Arc::new(record));
+    let partial = stat.0.max(0) as usize > resident_limit();
+    let mut bytes = held.as_ref().map(|h| h.2).unwrap_or(0);
+    let mut map: BTreeMap<String, std::sync::Arc<FileRecord>> = match held {
+        // caught up in place when this is the only holder: no second map
+        Some((seen, records, _)) if stat.0 >= seen.0 => {
+            let mut next = std::sync::Arc::try_unwrap(records).unwrap_or_else(|shared| (*shared).clone());
+            for (_key, row, _updated) in store.kv_list_since(GRAPH_BUCKET, &prefix, seen.1) {
+                if let Some(path) = path_of(&row) {
+                    let record = FileRecord::from_value(&row);
+                    bytes += record.approx_bytes() + path.len() + 64;
+                    if let Some(old) = next.insert(path, std::sync::Arc::new(record)) {
+                        bytes = bytes.saturating_sub(old.approx_bytes());
+                    }
                 }
             }
             next
         }
         _ => BTreeMap::new(),
     };
-    if map.len() as i64 != stat.0 {
+    if partial {
+        if map.is_empty() || stat.0 < held_count(&key) {
+            // first read, or a row went: the working set, read again
+            map.clear();
+            bytes = 0;
+            for (_key, row) in store.kv_list_recent(GRAPH_BUCKET, &prefix, resident_limit()) {
+                if let Some(path) = path_of(&row) {
+                    let record = FileRecord::from_value(&row);
+                    bytes += record.approx_bytes() + path.len() + 64;
+                    map.insert(path, std::sync::Arc::new(record));
+                }
+            }
+        }
+        // past the limit: the least recently written leave
+        if map.len() > resident_limit() {
+            let mut by_age: Vec<(f64, String)> = map.iter().map(|(p, r)| (r.ts, p.clone())).collect();
+            by_age.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+            for (_, path) in by_age.into_iter().take(map.len() - resident_limit()) {
+                if let Some(old) = map.remove(&path) {
+                    bytes = bytes.saturating_sub(old.approx_bytes() + path.len() + 64);
+                }
+            }
+        }
+    } else if map.len() as i64 != stat.0 {
         // a row was deleted (or this is the first read): the whole set
-        map = store
-            .kv_list(GRAPH_BUCKET, &prefix)
-            .into_iter()
-            .filter_map(|(_key, record)| {
-                let path = record.get("path").and_then(Value::as_str)?.to_string();
-                Some((path, std::sync::Arc::new(record)))
-            })
-            .collect();
+        map.clear();
+        bytes = 0;
+        store.kv_for_each(GRAPH_BUCKET, &prefix, |_key, row| {
+            if let Some(path) = path_of(&row) {
+                let record = FileRecord::from_value(&row);
+                bytes += record.approx_bytes() + path.len() + 64;
+                map.insert(path, std::sync::Arc::new(record));
+            }
+        });
     }
     let records: Records = std::sync::Arc::new(map);
-    if let Ok(mut c) = cache.lock() {
-        c.insert(key, (stat, records.clone(), crate::store::now()));
+    if let Ok(mut c) = records_cache().lock() {
+        c.insert(key.clone(), HeldRecords { stat, records: records.clone(), bytes });
     }
+    crate::membudget::report(&key, crate::membudget::Part::Records, bytes);
     records
+}
+
+/// The row count the held records were last in step with.
+fn held_count(key: &str) -> i64 {
+    records_cache().lock().ok().and_then(|c| c.get(key).map(|h| h.stat.0)).unwrap_or(0)
 }
 
 fn records(store: &Store, scope: &str) -> Records {
@@ -97,19 +357,28 @@ fn records(store: &Store, scope: &str) -> Records {
 
 /// The names one record contributes to the name index, in the order
 /// `indexes` adds them (a symbol, then its bare name when that differs).
-pub(crate) fn contributions_of(record: &Value) -> Vec<String> {
-    contributions(record)
+pub(crate) fn contributions_of(record: &FileRecord) -> Vec<String> {
+    let mut out = Vec::new();
+    for symbol in &record.symbols {
+        push_names(&symbol.name, &mut out);
+    }
+    out
 }
 
+fn push_names(name: &str, out: &mut Vec<String>) {
+    out.push(name.to_string());
+    let bare = name.rsplit("::").next().unwrap_or(name).rsplit('.').next().unwrap_or(name);
+    if bare != name {
+        out.push(bare.to_string());
+    }
+}
+
+/// The names a stored row contributes, read straight from the row.
 fn contributions(record: &Value) -> Vec<String> {
     let mut out = Vec::new();
     let Some(symbols) = record.get("symbols").and_then(Value::as_object) else { return out };
     for name in symbols.keys() {
-        out.push(name.clone());
-        let bare = name.rsplit("::").next().unwrap_or(name).rsplit('.').next().unwrap_or(name);
-        if bare != name {
-            out.push(bare.to_string());
-        }
+        push_names(name, &mut out);
     }
     out
 }
@@ -129,12 +398,34 @@ struct GraphIndex {
 }
 
 impl GraphIndex {
+    /// Built from the stored rows one at a time: the names are all it
+    /// needs, and a big repo's records never have to be held at once.
     fn build(store: &Store, scope: &str) -> Self {
-        let stat = store.kv_stat(GRAPH_BUCKET, &format!("{scope}:"));
-        let all = records(store, scope);
-        let (known, names) = indexes(&*all);
+        let prefix = format!("{scope}:");
+        let stat = store.kv_stat(GRAPH_BUCKET, &prefix);
+        let mut known: BTreeSet<String> = BTreeSet::new();
+        let mut names: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let mut rows: Vec<(String, Vec<String>)> = Vec::new();
+        store.kv_for_each(GRAPH_BUCKET, &prefix, |_key, row| {
+            if let Some(path) = path_of(&row) {
+                rows.push((path, contributions(&row)));
+            }
+        });
+        // in path order, as a rebuild from records sorted by path adds them
+        rows.sort_by(|a, b| a.0.cmp(&b.0));
+        for (path, contributed) in rows {
+            for name in contributed {
+                names.entry(name).or_default().push(path.clone());
+            }
+            known.insert(path);
+        }
         let known_fp = paths_fingerprint(&known);
         Self { stat, last_used: crate::store::now(), known, names, known_fp }
+    }
+
+    fn approx_bytes(&self) -> usize {
+        self.known.iter().map(|p| 48 + p.len()).sum::<usize>()
+            + self.names.iter().map(|(n, ps)| 72 + n.len() + ps.iter().map(|p| 24 + p.len()).sum::<usize>()).sum::<usize>()
     }
 
     /// `path` now holds `record` (it held `old`): the same index a rebuild
@@ -181,9 +472,46 @@ fn index_for(store: &Store, scope: &str) -> IndexHandle {
         if idx.stat != now_stat {
             tracing::debug!("graph index for {scope} rebuilt: {:?} -> {:?}", idx.stat, now_stat);
             *idx = GraphIndex::build(store, scope);
+            crate::membudget::report(&store.cache_key(scope), crate::membudget::Part::Index, idx.approx_bytes());
         }
     }
+    crate::membudget::touch(&store.cache_key(scope));
     handle
+}
+
+/// The whole repo's file set and name index, for a graph assembled from a
+/// working set: its files' imports still resolve against every file.
+pub fn with_index<R>(store: &Store, scope: &str, f: impl FnOnce(&BTreeSet<String>, &BTreeMap<String, Vec<String>>) -> R) -> R {
+    let handle = index_for(store, scope);
+    let idx = handle.lock().unwrap_or_else(|e| e.into_inner());
+    f(&idx.known, &idx.names)
+}
+
+/// Drop one repo's records and index (the memory budget's eviction).
+pub fn evict_key(key: &str) {
+    if let Ok(mut c) = records_cache().lock() {
+        c.remove(key);
+    }
+    if let Some(all) = INDEXES.get() {
+        if let Ok(mut map) = all.lock() {
+            map.remove(key);
+        }
+    }
+}
+
+/// Drop every repo's records and index (memory pressure).
+pub fn evict_all() -> usize {
+    let mut dropped = 0;
+    if let Ok(mut c) = records_cache().lock() {
+        dropped += c.len();
+        c.clear();
+    }
+    if let Some(all) = INDEXES.get() {
+        if let Ok(mut map) = all.lock() {
+            map.clear();
+        }
+    }
+    dropped
 }
 
 /// Drop every repo whose records and index went unused for `idle_s`: an
@@ -192,16 +520,20 @@ fn index_for(store: &Store, scope: &str) -> IndexHandle {
 pub fn evict_idle(idle_s: f64) -> usize {
     let cutoff = crate::store::now() - idle_s;
     let mut dropped = 0;
-    if let Some(cache) = RECORDS.get() {
-        if let Ok(mut c) = cache.lock() {
-            let before = c.len();
-            c.retain(|_, entry| entry.2 >= cutoff);
-            dropped += before - c.len();
+    let idle: Vec<String> = crate::membudget::idle_keys(cutoff);
+    for key in &idle {
+        let held_records = records_cache().lock().map(|c| c.contains_key(key)).unwrap_or(false);
+        let held_index = INDEXES.get().and_then(|all| all.lock().ok().map(|m| m.contains_key(key))).unwrap_or(false);
+        if held_records || held_index {
+            dropped += 1;
         }
+        evict_key(key);
     }
     if let Some(all) = INDEXES.get() {
         if let Ok(mut map) = all.lock() {
+            let before = map.len();
             map.retain(|_, handle| handle.lock().map(|idx| idx.last_used >= cutoff).unwrap_or(false));
+            dropped += before - map.len();
         }
     }
     dropped
@@ -221,22 +553,6 @@ pub fn symbols_of(store: &Store, scope: &str, path: &str) -> serde_json::Map<Str
 
 fn record_of(store: &Store, scope: &str, path: &str) -> Value {
     store.kv_get(GRAPH_BUCKET, &format!("{scope}:{}", path_key(path))).unwrap_or(Value::Null)
-}
-
-fn indexes<V: std::ops::Deref<Target = Value>>(records: &BTreeMap<String, V>) -> (BTreeSet<String>, BTreeMap<String, Vec<String>>) {
-    let known: BTreeSet<String> = records.keys().cloned().collect();
-    let mut names: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for (path, record) in records {
-        let Some(symbols) = record.get("symbols").and_then(Value::as_object) else { continue };
-        for name in symbols.keys() {
-            names.entry(name.clone()).or_default().push(path.clone());
-            let bare = name.rsplit("::").next().unwrap_or(name).rsplit('.').next().unwrap_or(name);
-            if bare != name {
-                names.entry(bare.to_string()).or_default().push(path.clone());
-            }
-        }
-    }
-    (known, names)
 }
 
 /// The per-file graph record: names, kinds, raw name-level edges and imports.
@@ -539,5 +855,46 @@ mod index_tests {
         // a write from elsewhere (another half) moves the rows: rebuilt, not stale
         let _ = db.kv_put(GRAPH_BUCKET, &format!("{scope}:{}", path_key("pkg/e.py")), &rec("pkg/e.py", &["zed"]), 2_000.0);
         assert!(with_known(&db, scope, |known| known.contains("pkg/e.py")));
+    }
+
+    fn importing(path: &str, name: &str, from_module: &str, imported: &str) -> Value {
+        json!({"path": path, "language": "python",
+               "symbols": {name: {"kind": "function", "edges": [[imported, "", "calls"]]}},
+               "imports": [{"module": from_module, "names": [[imported, imported]]}]})
+    }
+
+    #[test]
+    fn a_huge_repo_keeps_its_working_set_in_memory_and_resolves_against_every_file() {
+        set_test_resident_limit(Some(3));
+        let db = Store::open(std::path::Path::new(":memory:")).unwrap();
+        let scope = "w:huge";
+        // six files; the oldest defines what the newest calls
+        update_file(&db, scope, "lib/core.py", rec("lib/core.py", &["compute"]), 1_000.0);
+        for i in 0..4 {
+            let path = format!("lib/m{i}.py");
+            update_file(&db, scope, &path, rec(&path, &[&format!("f{i}")]), 1_001.0 + i as f64);
+        }
+        update_file(&db, scope, "app/main.py", importing("app/main.py", "run", "lib.core", "compute"), 1_010.0);
+        std::thread::sleep(std::time::Duration::from_millis(5));
+
+        let records = records_shared(&db, scope);
+        assert_eq!(records.len(), 3, "the working set only: {:?}", records.keys().collect::<Vec<_>>());
+        assert!(records.contains_key("app/main.py") && !records.contains_key("lib/core.py"));
+        assert_eq!(file_count(&db, scope), (6, true));
+
+        let graph = crate::graphview::snapshot(&db, scope);
+        assert_eq!(graph.partial, Some(6));
+        // the call resolves to a file outside the working set
+        let targets: Vec<&String> = graph.out.get("app/main.py::run").map(|m| m.keys().collect()).unwrap_or_default();
+        assert!(targets.iter().any(|t| t.as_str() == "lib/core.py::compute"), "{targets:?}");
+
+        // touching the old file brings it in; the least recently written leaves
+        update_file(&db, scope, "lib/core.py", rec("lib/core.py", &["compute", "helper"]), 1_020.0);
+        let records = records_shared(&db, scope);
+        assert_eq!(records.len(), 3);
+        assert!(records.contains_key("lib/core.py"));
+        let graph = crate::graphview::snapshot(&db, scope);
+        assert!(graph.nodes.contains_key("lib/core.py::helper"));
+        set_test_resident_limit(None);
     }
 }

@@ -84,6 +84,14 @@ pub fn run(stdin_data: &str, env: &Env) -> (i32, String) {
             PathBuf::from(from_input)
         }
     };
+    // a shell command is about to run: say so, in a process of its own, so
+    // the dashboard shows it running for as long as it runs and the command
+    // never waits on the network
+    if SHELL_TOOLS.contains(&tool.as_str()) && config::get(env, crate::machine::MACHINE_FLAG) == "1" {
+        crate::report::spawn_started(&cwd, &text(&hook_input, "session_id"), &text(&tool_input, "command"), &text(&hook_input, "transcript_path"));
+    }
+    // which folder this session works in, and what it stages through git
+    crate::sharedtree::note(&hook_input, &cwd, env);
     let targets = edit_targets(&tool_input, &cwd, &tool);
     if targets.is_empty() {
         return (0, String::new());

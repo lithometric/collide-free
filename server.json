@@ -4,7 +4,7 @@
   "title": "Collide",
   "description": "Run multiple AI coding agents on one repo without conflicts: live awareness, a write gate, briefings and agent messaging.",
   "repository": {
-    "url": "https://github.com/lithometric/collide-free",
+    "url": "https://github.com/lithometric/collidemcp",
     "source": "github"
   },
   "websiteUrl": "https://collidemcp.com",

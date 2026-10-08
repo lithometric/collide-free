@@ -111,4 +111,4 @@ The engine's license lets you use, change and share it for anything except offer
 
 ---
 
-If Collide saved your agents a merge conflict, a **star** helps other developers running parallel agents find it. Questions and ideas: [open an issue](https://github.com/lithometric/collide-free/issues). Website: [collidemcp.com](https://collidemcp.com) · Claude Code plugin: [lithometric/collide-plugin](https://github.com/lithometric/collide-plugin)
+If Collide saved your agents a merge conflict, a **star** helps other developers running parallel agents find it. Questions and ideas: [open an issue](https://github.com/lithometric/collidemcp/issues). Website: [collidemcp.com](https://collidemcp.com) · Claude Code plugin: [lithometric/collidemcp](https://github.com/lithometric/collidemcp/tree/main/plugin)

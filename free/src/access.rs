@@ -520,7 +520,19 @@ where
 /// repos. A scope with no tree yet is therefore invisible here even to its
 /// own members — the caller adds the one scope it was itself authorised for.
 pub fn visible_scopes(store: &Store, workspace_id: &str, member: Option<&Value>) -> BTreeSet<String> {
-    scopes_visible_to(member, store.list_scopes(&format!("{workspace_id}:")))
+    let prefix = format!("{workspace_id}:");
+    let mut scopes = store.list_scopes(&prefix);
+    // and every repo the workspace has (watched, or added by an agent's
+    // first call) though it has no tree yet: an agent that has only read
+    // there was missing from every other repo's roster. A binding is
+    // deleted when its repo is removed or moved, so none comes back.
+    for (_, rec) in store.kv_list("ghrepo", &prefix) {
+        let repo = rec.get("repo_id").and_then(Value::as_str).unwrap_or("").trim().to_string();
+        if !repo.is_empty() {
+            scopes.push(format!("{prefix}{repo}"));
+        }
+    }
+    scopes_visible_to(member, scopes)
 }
 
 /// "ok" | "removed" | "unverified" | "off".

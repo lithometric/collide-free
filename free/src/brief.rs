@@ -546,7 +546,16 @@ the Coverage line below says whether the dependents listed are complete.",
         text.push_str(&block);
     }
     let mut coverage: Vec<String> = Vec::new();
-    if rest.is_empty() && !capped && !with_callers.is_empty() {
+    // a huge repo's graph is its working set: dependents outside it are not
+    // in it, and saying "complete" would send the agent off without them
+    if let Some(total) = graph.partial {
+        coverage.push(format!(
+            "partial: this repo has {total} files and the map holds the {} most recently written or read; \
+dependents elsewhere are not listed, so grep before changing a shared symbol",
+            graph.files
+        ));
+    }
+    if rest.is_empty() && !capped && !with_callers.is_empty() && graph.partial.is_none() {
         // every dependent within two hops is on the page: the agent has the
         // whole blast radius and a call to fetch it again would return the same
         coverage.push(format!(
@@ -825,6 +834,23 @@ fn render_all(
                 block.push_str(line);
             }
         }
+        // the cap holds after the extra lines too, cut at a whole line: one
+        // module's dependents list made a single briefing 51k tokens, and a
+        // briefing is carried on every later message of the session
+        if block.len() > cap {
+            let mut kept = String::new();
+            for line in block.lines() {
+                if !kept.is_empty() && kept.len() + line.len() + 1 > cap {
+                    kept.push_str(&format!("\n  … more: get_symbol(repo_id, \"{path}\")"));
+                    break;
+                }
+                if !kept.is_empty() {
+                    kept.push('\n');
+                }
+                kept.push_str(line);
+            }
+            block = kept;
+        }
         if !blocks.is_empty() && used + block.len() > budget {
             rest.push(path.clone());
             continue;
@@ -980,11 +1006,12 @@ fn right_now(store: &Store, scope: &str, input: &BriefInput, stamp: f64) -> Stri
         .collect();
     let labels = crate::activity::identity_labels(store, input.viewer, &users);
     let mut out = vec!["Right now, other agents in this repo:".to_string()];
-    for row in live {
+    for row in &live {
         let user = row.get("user").and_then(Value::as_str).unwrap_or("");
         let who = if user == input.viewer {
             "another session of yours".to_string()
         } else {
+            // the label carries the address a message takes (`Becca (bob@x.com)`)
             labels.get(user).and_then(|l| l.get("label")).and_then(Value::as_str).unwrap_or(user).to_string()
         };
         let kind = row.pointer("/last_action/kind").and_then(Value::as_str).unwrap_or("");
@@ -1004,8 +1031,23 @@ fn right_now(store: &Store, scope: &str, input: &BriefInput, stamp: f64) -> Stri
             out.push(format!("  {who}: {doing} {path}{task}, {}", age_text(idle)));
         }
     }
+    // a teammate at work: once a session, how and when to reach them
+    let teammate = live.iter().any(|row| row.get("user").and_then(Value::as_str).is_some_and(|u| u != input.viewer));
+    if teammate && !input.session.is_empty()
+        && crate::access::tell_once(store, &format!("msgrule:{}", input.session), crate::access::TOLD_ONCE_TTL_S)
+    {
+        out.push(MESSAGE_RULE.to_string());
+    }
     out.join("\n")
 }
+
+/// Said once a session, the first time a teammate shows up at work: agents
+/// tell each other what matters without the people having to relay it.
+const MESSAGE_RULE: &str = "Message a teammate yourself, unasked, when it matters to them: you are changing \
+code they are on or use, you found something they need (a bug, a decision, a breaking change), or your work and \
+theirs should line up. One short factual message: `collide message --to <address> \"...\"` (or \
+--about path::symbol for whoever is on that code; MCP: send_agent_message). Asking them to stop or redo work: \
+say why, and tell your user you did. Not for chatter.";
 
 /// What the dependents' tests said about the newest live change to `path`,
 /// from its hot marker: "tests passed after the change", "tests FAILING

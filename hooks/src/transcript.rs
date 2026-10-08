@@ -95,7 +95,78 @@ pub fn turn_meta(path: &str) -> Map<String, Value> {
         meta.insert("model".into(), Value::from(model));
         return meta;
     }
+    codex_turn_meta(&text)
+}
+
+/// The same counters from a Codex rollout. A current Codex logs each model
+/// response as a `token_usage_record` (its `response_id` is the call's id);
+/// an older one as a `token_count` event, whose timestamp stands in for the
+/// id. Either way the many tool calls of one response bill it once. The model
+/// is in `turn_context`. OpenAI counts cached input inside `input_tokens`, so
+/// the uncached part is the difference.
+fn codex_turn_meta(text: &str) -> Map<String, Value> {
+    let mut meta = Map::new();
+    let lines: Vec<&str> = text.lines().collect();
+    for (at, line) in lines.iter().enumerate().rev() {
+        if !line.contains("\"token_usage_record\"") && !line.contains("\"token_count\"") {
+            continue;
+        }
+        let Ok(entry) = serde_json::from_str::<Value>(line.trim()) else { continue };
+        let payload = entry.get("payload").cloned().unwrap_or(Value::Null);
+        let stamp = entry.get("timestamp").and_then(Value::as_str).unwrap_or("");
+        let (usage, turn_id) = match (entry.get("type").and_then(Value::as_str), payload.get("type").and_then(Value::as_str)) {
+            (Some("token_usage_record"), _) => (
+                payload.get("usage").cloned(),
+                payload.get("response_id").and_then(Value::as_str).map(|id| format!("codex:{id}")).unwrap_or_default(),
+            ),
+            (Some("event_msg"), Some("token_count")) => (
+                payload.get("info").and_then(|i| i.get("last_token_usage")).cloned(),
+                if stamp.is_empty() { String::new() } else { format!("codex:{stamp}") },
+            ),
+            _ => continue,
+        };
+        let Some(usage) = usage.filter(Value::is_object) else { continue };
+        let count = |field: &str| usage.get(field).and_then(Value::as_i64).unwrap_or(0).max(0);
+        let (read, cached, written, out) =
+            (count("input_tokens"), count("cached_input_tokens"), count("cache_write_input_tokens"), count("output_tokens"));
+        let inp = (read - cached - written).max(0);
+        let model = lines[..at].iter().rev()
+            .filter(|l| l.contains("\"turn_context\""))
+            .filter_map(|l| serde_json::from_str::<Value>(l.trim()).ok())
+            .find_map(|e| e.get("payload").and_then(|p| p.get("model")).and_then(Value::as_str).map(str::to_string))
+            .unwrap_or_default();
+        meta.insert("tokens".into(), Value::from(inp + out));
+        meta.insert("input_tokens".into(), Value::from(inp));
+        meta.insert("output_tokens".into(), Value::from(out));
+        meta.insert("cache_read_tokens".into(), Value::from(cached));
+        meta.insert("cache_creation_tokens".into(), Value::from(written));
+        meta.insert("context".into(), Value::from(read));
+        meta.insert("turn_id".into(), Value::from(turn_id));
+        meta.insert("model".into(), Value::from(model));
+        return meta;
+    }
     meta
+}
+
+/// A Codex rollout line's assistant text: a `response_item` message's
+/// output text, or an `agent_message` event's.
+fn codex_reply(entry: &Value) -> String {
+    let Some(payload) = entry.get("payload") else { return String::new() };
+    match (entry.get("type").and_then(Value::as_str), payload.get("type").and_then(Value::as_str)) {
+        (Some("response_item"), Some("message")) if payload.get("role").and_then(Value::as_str) == Some("assistant") => payload
+            .get("content")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter(|b| b.get("type").and_then(Value::as_str) == Some("output_text"))
+            .filter_map(|b| b.get("text").and_then(Value::as_str))
+            .collect::<Vec<_>>()
+            .join("\n"),
+        (Some("event_msg"), Some("agent_message")) => {
+            payload.get("message").and_then(Value::as_str).unwrap_or("").to_string()
+        }
+        _ => String::new(),
+    }
 }
 
 /// The human-readable text of one transcript line: message content when it
@@ -154,6 +225,10 @@ pub fn last_reply(path: &str) -> String {
     let Some(text) = tail(path) else { return String::new() };
     for line in text.lines().rev() {
         let Ok(entry) = serde_json::from_str::<Value>(line) else { continue };
+        let codex = codex_reply(&entry);
+        if !codex.trim().is_empty() {
+            return take_chars(codex.trim(), 4000);
+        }
         if entry.get("type").and_then(Value::as_str) != Some("assistant") {
             continue;
         }
@@ -163,4 +238,48 @@ pub fn last_reply(path: &str) -> String {
         }
     }
     String::new()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ROLLOUT: &str = r#"{"timestamp":"2026-10-04T06:00:00.000Z","type":"turn_context","payload":{"cwd":"/r","model":"gpt-5-codex"}}
+{"timestamp":"2026-10-04T06:00:01.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"fix it"}]}}
+{"timestamp":"2026-10-04T06:00:05.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":90000,"cached_input_tokens":80000,"output_tokens":900},"last_token_usage":{"input_tokens":30000,"cached_input_tokens":25000,"output_tokens":400,"reasoning_output_tokens":100,"total_tokens":30400}}}}
+{"timestamp":"2026-10-04T06:00:06.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Parked the funnels work."}]}}
+"#;
+
+    fn rollout() -> String {
+        let path = std::env::temp_dir().join(format!("collide-rollout-{}.jsonl", std::process::id()));
+        std::fs::write(&path, ROLLOUT).unwrap();
+        path.to_string_lossy().into_owned()
+    }
+
+    #[test]
+    fn a_codex_rollout_bills_its_last_model_call() {
+        let meta = turn_meta(&rollout());
+        assert_eq!(meta["input_tokens"], 5000, "cached input is counted inside OpenAI's input_tokens");
+        assert_eq!(meta["cache_read_tokens"], 25000);
+        assert_eq!(meta["output_tokens"], 400);
+        assert_eq!(meta["context"], 30000);
+        assert_eq!(meta["model"], "gpt-5-codex");
+        assert_eq!(meta["turn_id"], "codex:2026-10-04T06:00:05.000Z");
+    }
+
+    #[test]
+    fn a_current_codex_rollout_bills_by_response_id() {
+        let path = std::env::temp_dir().join(format!("collide-rollout-new-{}.jsonl", std::process::id()));
+        std::fs::write(&path, format!("{ROLLOUT}{}\n", r#"{"timestamp":"2026-10-04T06:00:07.000Z","type":"token_usage_record","payload":{"turn_id":"t1","response_id":"resp_9","usage":{"input_tokens":40000,"cached_input_tokens":30000,"cache_write_input_tokens":2000,"output_tokens":700,"reasoning_output_tokens":0,"total_tokens":40700}}}"#)).unwrap();
+        let meta = turn_meta(&path.to_string_lossy());
+        assert_eq!(meta["turn_id"], "codex:resp_9");
+        assert_eq!(meta["input_tokens"], 8000);
+        assert_eq!(meta["cache_creation_tokens"], 2000);
+        assert_eq!(meta["model"], "gpt-5-codex");
+    }
+
+    #[test]
+    fn a_codex_rollout_gives_its_closing_reply() {
+        assert_eq!(last_reply(&rollout()), "Parked the funnels work.");
+    }
 }

@@ -1428,7 +1428,7 @@
   }
  },
  "BLOCK_VERSION": 24,
- "HOOK_ARTIFACT_VERSION": 56,
+ "HOOK_ARTIFACT_VERSION": 69,
  "HOOK_FILE": ".collide/report_hook.py",
  "GATE_HOOK_FILE": ".collide/gate_hook.py",
  "PRECOMMIT_SCRIPT_FILE": ".collide/pre_commit.py",

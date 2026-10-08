@@ -51,6 +51,10 @@ fn event_name(harness: &str, event: &str) -> String {
             ("stop", "Stop"),
         ],
         "hermes" => &[
+            ("on_session_start", "SessionStart"),
+            // Hermes fires this at the end of every turn: the turn's Stop
+            ("on_session_end", "Stop"),
+            ("on_session_finalize", "SessionEnd"),
             ("pre_llm_call", "UserPromptSubmit"),
             ("pre_tool_call", "PreToolUse"),
             ("post_tool_call", "PostToolUse"),
@@ -71,7 +75,7 @@ fn tool_name(harness: &str, tool: &str) -> String {
             ("write_file", "Write"),
             ("edit_file", "Edit"),
             ("str_replace", "Edit"),
-            ("patch", "apply_patch"),
+            ("patch", "Edit"),
             ("read_file", "Read"),
             ("grep", "Grep"),
             ("glob", "Glob"),
@@ -126,6 +130,32 @@ pub fn normalize(payload: Value) -> Value {
             break;
         }
     }
+    // Hermes names the file `path` (relative, absolute or ~/), and its patch
+    // tool is an Edit unless it carries a V4A patch, which is an apply_patch
+    if harness == "hermes" {
+        let cwd = first_string(map, &["cwd"]);
+        if let Some(input) = out.get_mut("tool_input").and_then(Value::as_object_mut) {
+            let path = input.get("path").and_then(Value::as_str).unwrap_or("").to_string();
+            if !path.is_empty() && !input.contains_key("file_path") {
+                let expanded = match path.strip_prefix("~/") {
+                    Some(rest) => std::env::var("HOME").map(|h| format!("{h}/{rest}")).unwrap_or(path.clone()),
+                    None => path.clone(),
+                };
+                let absolute = if std::path::Path::new(&expanded).is_absolute() || cwd.is_empty() {
+                    expanded
+                } else {
+                    std::path::Path::new(&cwd).join(&expanded).to_string_lossy().to_string()
+                };
+                input.insert("file_path".into(), json!(absolute));
+            }
+            if tool == "patch" {
+                if let Some(v4a) = input.get("patch").and_then(Value::as_str).map(str::to_string) {
+                    input.insert("command".into(), json!(v4a));
+                    out.insert("tool_name".into(), json!("apply_patch"));
+                }
+            }
+        }
+    }
     // Cursor names the project in a list (and runs user-level hooks from
     // ~/.cursor, so the process's own directory is no guide)
     if first_string(map, &["cwd"]).is_empty() {
@@ -153,9 +183,25 @@ pub fn normalize(payload: Value) -> Value {
 /// Hermes discards a `post_tool_call` return value by design, so there is no
 /// channel there at all; the note stays queued for the next turn rather than
 /// being written into a pipe that throws it away.
+/// Characters this process put into the agent's context. Every one is
+/// carried on every later message, so all of it counts as Collide's cost,
+/// not only the briefing (report::run settles it per session).
+static INJECTED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+pub fn note_injected(text: &str) {
+    INJECTED.fetch_add(text.len(), std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn take_injected() -> usize {
+    INJECTED.swap(0, std::sync::atomic::Ordering::Relaxed)
+}
+
 pub fn render_context(event: &str, text: &str) -> String {
     if text.is_empty() {
         return String::new();
+    }
+    if !matches!(current(), "hermes") || event == "SessionStart" || event == "UserPromptSubmit" {
+        note_injected(text);
     }
     match current() {
         "cursor" => json!({"additional_context": text}).to_string(),
@@ -196,8 +242,10 @@ pub fn render_decision(allow: bool, reason: &str) -> (String, String, i32) {
             }
         }
         "hermes" => {
+            // nothing to say lets the call through: Hermes's `approve` is not
+            // an allow, it sends the call to the person for approval
             if allow {
-                (json!({"action": "approve"}).to_string(), String::new(), 0)
+                (String::new(), String::new(), 0)
             } else {
                 (json!({"action": "block", "message": reason}).to_string(), String::new(), 0)
             }

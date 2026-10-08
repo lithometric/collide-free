@@ -20,7 +20,7 @@ use crate::http;
 use crate::shell;
 use crate::transcript;
 
-pub const HOOK_VERSION: u32 = 56; // must match blocks.HOOK_ARTIFACT_VERSION
+pub const HOOK_VERSION: u32 = 69; // must match blocks.HOOK_ARTIFACT_VERSION
 pub const TOTAL_BUDGET: Duration = Duration::from_millis(500);
 const MAX_FILE_BYTES: u64 = 512 * 1024;
 
@@ -368,9 +368,15 @@ fn settings_digest(root: &Path) -> String {
 /// itself (the shadowing binary, before `supersede`) repeated it forever.
 /// The stamp carries this hook's own version too, so a LATER version that is
 /// still behind gets to speak again instead of inheriting the old silence.
-fn artifacts_note(response: &Value, root: &Path) -> String {
+fn artifacts_note(response: &Value, root: &Path, server: &str, env: &Env) -> String {
     let notice = text(response, "artifacts_outdated");
     if notice.is_empty() {
+        return String::new();
+    }
+    // the machine install updates itself: it starts that now, and the agent
+    // is told nothing (an installer it ran itself cost a turn, and every
+    // other repo's session on the machine was told again)
+    if crate::selfupdate::update_now(server, env) {
         return String::new();
     }
     let stamp = git::stamp_path(root, "artifacts");
@@ -900,12 +906,122 @@ pub(crate) fn tracked_sources(root: &Path) -> Vec<String> {
         .collect()
 }
 
+/// Folders that hold someone else's code, checked in: never anyone's work
+/// here, and in a monorepo that vendors a whole product, most of the map.
+const VENDORED_DIRS: [&str; 11] = [
+    "vendor", "vendors", "third_party", "third-party", "thirdparty", "bower_components", "Pods", "Carthage",
+    "__generated__", "generated", ".yarn",
+];
+
+/// Files a generator or bundler wrote.
+fn is_generated_name(rel: &str) -> bool {
+    let name = rel.rsplit('/').next().unwrap_or(rel).to_ascii_lowercase();
+    name.ends_with(".min.js") || name.ends_with(".bundle.js") || name.ends_with(".pb.go") || name.ends_with("_pb2.py")
+        || name.ends_with("_pb2_grpc.py") || name.contains(".generated.") || name.ends_with(".gen.go")
+}
+
+/// What the bulk index skips: vendored or generated code, by folder, by
+/// name, or by the repo's own `.gitattributes` (`linguist-vendored`,
+/// `linguist-generated`). An agent that reads or edits one of these files
+/// still brings it into the map.
+fn skipped_by_index(root: &Path, files: &[String]) -> std::collections::HashSet<String> {
+    let mut skip: std::collections::HashSet<String> = files
+        .iter()
+        .filter(|rel| rel.split('/').any(|part| VENDORED_DIRS.contains(&part)) || is_generated_name(rel))
+        .cloned()
+        .collect();
+    let has_attributes = root.join(".gitattributes").exists()
+        || files.iter().any(|f| f.ends_with("/.gitattributes"));
+    if !has_attributes {
+        return skip;
+    }
+    use std::io::Write;
+    let child = std::process::Command::new("git")
+        .args(["-C", &root.to_string_lossy(), "check-attr", "-z", "--stdin", "linguist-vendored", "linguist-generated"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn();
+    let Ok(mut child) = child else { return skip };
+    let list: Vec<u8> = files.iter().flat_map(|f| f.bytes().chain(std::iter::once(0u8))).collect();
+    let writer = child.stdin.take().map(|mut stdin| std::thread::spawn(move || {
+        let _ = stdin.write_all(&list);
+    }));
+    let Ok(out) = child.wait_with_output() else { return skip };
+    if let Some(writer) = writer {
+        let _ = writer.join();
+    }
+    // path NUL attribute NUL value NUL, repeated
+    let text = String::from_utf8_lossy(&out.stdout);
+    let parts: Vec<&str> = text.split('\0').collect();
+    for triple in parts.chunks(3) {
+        if let [path, _attr, value] = triple {
+            if matches!(*value, "set" | "true") {
+                skip.insert(path.to_string());
+            }
+        }
+    }
+    skip
+}
+
+/// How many files the bulk index sends: past this, a repo's map starts from
+/// the code people work on (`COLLIDE_INDEX_MAX_FILES`).
+fn index_max_files(env: &Env) -> usize {
+    config::get(env, "COLLIDE_INDEX_MAX_FILES").trim().parse().unwrap_or(6_000)
+}
+
+/// Files changed in git in the last half year, newest first.
+fn recently_changed(root: &Path) -> Vec<String> {
+    let Ok(out) = std::process::Command::new("git")
+        .args(["-C", &root.to_string_lossy(), "log", "--since=180.days", "--name-only", "--format=", "-n", "2000"])
+        .stderr(std::process::Stdio::null())
+        .output()
+    else {
+        return Vec::new();
+    };
+    let mut seen = std::collections::HashSet::new();
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter(|l| !l.is_empty() && seen.insert(l.to_string()))
+        .map(str::to_string)
+        .collect()
+}
+
+/// The tracked sources the bulk index covers, best first: past
+/// `limit`, the files changed most recently in git, then the files in the
+/// folders with the most recent changes. Below the limit, every file, in
+/// path order.
+fn index_candidates(root: &Path, env: &Env) -> Vec<String> {
+    let mut files = tracked_sources(root);
+    let skip = skipped_by_index(root, &files);
+    files.retain(|f| !skip.contains(f));
+    let limit = index_max_files(env);
+    if files.len() <= limit {
+        return files;
+    }
+    let recent = recently_changed(root);
+    let rank: std::collections::HashMap<&str, usize> = recent.iter().enumerate().map(|(i, p)| (p.as_str(), i)).collect();
+    // a folder's activity: its recent changes, at two levels deep
+    let folder = |p: &str| -> String { p.split('/').take(2).collect::<Vec<_>>().join("/") };
+    let mut activity: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for p in &recent {
+        *activity.entry(folder(p)).or_default() += 1;
+    }
+    files.sort_by_cached_key(|f| {
+        let r = rank.get(f.as_str()).copied();
+        (r.is_none(), r.unwrap_or(0), std::cmp::Reverse(activity.get(&folder(f)).copied().unwrap_or(0)), f.clone())
+    });
+    files.truncate(limit);
+    files.sort();
+    files
+}
+
 /// (path, content, sha) for every tracked source the map has not seen in
 /// this exact form — the whole tree the first time, then only changes.
-fn index_plan(root: &Path, state: &Value) -> Vec<(String, String, String)> {
+fn index_plan(root: &Path, state: &Value, env: &Env) -> Vec<(String, String, String)> {
     let known = state.get("files").and_then(Value::as_object);
     let mut plan = Vec::new();
-    for rel in tracked_sources(root) {
+    for rel in index_candidates(root, env) {
         let Some(content) = source_of(&root.join(&rel)) else { continue };
         let sha = sha256_hex(content.as_bytes());
         if known.and_then(|k| k.get(&rel)).and_then(Value::as_str) == Some(sha.as_str()) {
@@ -922,7 +1038,7 @@ pub fn index_repo(root: &Path, cfg: &config::Config, env: &Env, budget: Duration
     let started = Instant::now();
     let state_path = index_state_path(root, env, &cfg.server, &cfg.repo_id);
     let state = config::load_json(&state_path);
-    let plan = index_plan(root, &state);
+    let plan = index_plan(root, &state, env);
     let mut files = state.get("files").and_then(Value::as_object).cloned().unwrap_or_default();
     let (mut sent, mut i) = (0usize, 0usize);
     while i < plan.len() {
@@ -1008,15 +1124,22 @@ pub(crate) fn may_open_browser(env: &Env) -> bool {
 /// in ~/.collide/dashboard_opened.json BEFORE opening, so a browser that
 /// fails to launch is never retried every session. Twin of the Python
 /// hook's `_open_dashboard_once`.
-fn open_dashboard_once(root: &Path, server: &str, repo_id: &str, env: &Env) -> String {
-    let url = dashboard_url(server, env);
-    if url.is_empty() || !may_open_browser(env) {
+/// A repo no workspace has yet: open the dashboard on the question of where
+/// it goes (`?add_repo=`), once per repo on this machine. A repo already in
+/// a workspace opens nothing: the browser used to open on every first
+/// session in a workspace, wanted or not. Signed out, the dashboard sends
+/// the person through sign-in and back to the question.
+fn open_add_repo_once(server: &str, repo_id: &str, env: &Env) -> String {
+    let base = dashboard_url(server, env);
+    if base.is_empty() || repo_id.is_empty() || !may_open_browser(env) {
         return String::new();
     }
-    let repo_cfg = config::load_json(&root.join(".collide").join("config.json"));
-    let workspace = repo_cfg.get("workspace").and_then(Value::as_str).unwrap_or("");
-    let key = if workspace.is_empty() { format!("{server}|{repo_id}") } else { workspace.to_string() };
-    let url = if workspace.is_empty() { url } else { format!("{url}?workspace={workspace}") };
+    let key = format!("add|{server}|{repo_id}");
+    let encoded: String = repo_id.bytes().map(|b| match b {
+        b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (b as char).to_string(),
+        _ => format!("%{b:02X}"),
+    }).collect();
+    let url = format!("{base}?add_repo={encoded}");
     let home = [config::get(env, "COLLIDE_HOME"), config::get(env, "HOME"), config::get(env, "USERPROFILE")]
         .into_iter()
         .find(|h| !h.is_empty())
@@ -1078,9 +1201,7 @@ fn run_session_start(hook_input: &Value, env: &Env) -> i32 {
         return 0;
     }
     let (sent, left) = index_repo(&root, &cfg, env, INDEX_BUDGET);
-    if cfg.machine_local {
-        crate::machine::mark_indexed(&root, env);
-    }
+    crate::machine::mark_indexed(&root, &cfg.server, env);
     let mut said: Vec<String> = moved.into_iter().collect();
     // the free version: the other agents are on this machine, and the way
     // to reach them is a command (the MCP tools may not be connected)
@@ -1093,18 +1214,6 @@ fn run_session_start(hook_input: &Value, env: &Env) -> i32 {
     if !RESUME_SOURCES.contains(&text(hook_input, "source").as_str()) && crate::machine::installed(env) {
         if let Some(ask) = crate::machine::agents_md_ask(&root, env) {
             said.push(ask);
-        }
-    }
-    // the first session in a workspace on this machine opens its live
-    // dashboard, so the human watches the agents from the first call
-    let source = text(hook_input, "source");
-    if !RESUME_SOURCES.contains(&source.as_str()) {
-        let opened = if cfg.machine_local { String::new() } else { open_dashboard_once(&root, &cfg.server, &cfg.repo_id, env) };
-        if !opened.is_empty() {
-            said.push(format!(
-                "Collide: opened the live dashboard for this workspace in the browser ({opened}). \
-Tell the user in one line that it shows every agent's edits here as they happen."
-            ));
         }
     }
     if left > 0 {
@@ -1137,6 +1246,14 @@ Tell the user in one line that it shows every agent's edits here as they happen.
     let session = text(hook_input, "session_id");
     let resume = RESUME_SOURCES.contains(&text(hook_input, "source").as_str());
     let mut payload = json!({"repo_id": cfg.repo_id, "budget": BRIEF_BUDGET});
+    // every branch and worktree of the repo, by name: the dashboard's
+    // switchers list them all, not only the ones an agent is on now
+    if !resume {
+        if let Some(map) = payload.as_object_mut() {
+            map.insert("branches".into(), json!(git::local_branches(&root)));
+            map.insert("worktrees".into(), json!(git::worktree_names(&root)));
+        }
+    }
     if resume {
         if let Some(map) = payload.as_object_mut() {
             map.insert("session".into(), json!(session));
@@ -1148,7 +1265,26 @@ Tell the user in one line that it shows every agent's edits here as they happen.
             said.push(line);
         }
     }
+    if !cfg.machine_local {
+        // where this repo lives, for the wake watcher; a listener that hands
+        // teammates' messages to this session the moment they are sent
+        crate::listen::note_checkout(&root, &cfg.server, &cfg.repo_id, env);
+        crate::listen::spawn_for_session(&root, &session, env);
+        if let Some(note) = crate::wake::woken_note(&cfg.repo_id, env) {
+            said.push(note);
+        }
+    }
     if let Ok(brief) = http::post(&cfg.server, "/brief", &cfg.token, &user_agent(), &payload, BRIEF_TIMEOUT) {
+        // a repo no workspace has: the dashboard asks where it goes
+        if brief.get("new_repo").and_then(Value::as_bool) == Some(true) && !cfg.machine_local && !resume {
+            let opened = open_add_repo_once(&cfg.server, &cfg.repo_id, env);
+            if !opened.is_empty() {
+                said.push(format!(
+                    "Collide: this repo is in none of the user's workspaces yet, so the dashboard opened in the browser \
+to add it ({opened}). Tell the user in one line to pick its workspace there."
+                ));
+            }
+        }
         let text = brief.get("text").and_then(Value::as_str).unwrap_or("");
         if !text.is_empty() {
             said.push(text.to_string());
@@ -1165,7 +1301,9 @@ Tell the user in one line that it shows every agent's edits here as they happen.
         Some(line) if crate::harness::current() == "claude" => {
             // Claude Code shows a systemMessage to the person directly
             let mut out = json!({"systemMessage": line});
+            crate::harness::note_injected(&line);
             if !said.is_empty() {
+                crate::harness::note_injected(&said.join("\n"));
                 out["hookSpecificOutput"] = json!({"hookEventName": "SessionStart", "additionalContext": said.join("\n")});
             }
             println!("{out}");
@@ -1202,6 +1340,15 @@ pub fn index_command(root: &str, env: &Env) -> i32 {
 
 pub fn run(stdin_data: &str, env: &Env) -> i32 {
     let code = run_event(stdin_data, env);
+    // everything this event put into the context is carried from now on
+    let settle = |env: &Env| {
+        let chars = crate::harness::take_injected();
+        if chars > 0 {
+            if let Ok(input) = serde_json::from_str::<Value>(stdin_data) {
+                crate::prompt::note_injected(&text(&input, "session_id"), chars, env);
+            }
+        }
+    };
     // a verdict nothing else carried: emit it alone, in the event's own shape
     let leftover = crate::check::leftover();
     if !leftover.is_empty() {
@@ -1221,6 +1368,7 @@ pub fn run(stdin_data: &str, env: &Env) -> i32 {
             }
         }
     }
+    settle(env);
     code
 }
 
@@ -1273,7 +1421,16 @@ fn run_event(stdin_data: &str, env: &Env) -> i32 {
         return run_session_start(&hook_input, env);
     }
     if text(&hook_input, "hook_event_name") == "Stop" {
-        return run_stop(&hook_input, env, started);
+        let code = run_stop(&hook_input, env, started);
+        // Cursor's chat cannot be reached from outside; its agent hears a
+        // teammate's message as it stops, as the next thing to do
+        if crate::harness::current() == "cursor" {
+            if let Some(said) = crate::listen::followup(&hook_input, env) {
+                crate::harness::note_injected(&said);
+                println!("{}", json!({"followup_message": said}));
+            }
+        }
+        return code;
     }
     let tool = text(&hook_input, "tool_name");
     if !WRITE_TOOLS.contains(&tool.as_str()) && !READ_TOOLS.contains(&tool.as_str()) {
@@ -1377,6 +1534,11 @@ fn run_event(stdin_data: &str, env: &Env) -> i32 {
         // every change on disk; two checkouts only share what is pushed
         let checkout = sha256_hex(format!("{machine}\n{}", root.display()).as_bytes());
         meta.insert("checkout".into(), json!(checkout.get(..16).unwrap_or("")));
+        // and which one by name, for the dashboard's worktree filter: the
+        // folder's own name only, never the path above it
+        if let Some(name) = root.file_name().and_then(|n| n.to_str()) {
+            meta.insert("worktree".into(), json!(name));
+        }
     }
     // the git origin as a repo id: when it disagrees with the committed config
     // the server treats it as a rename and hands back preferred_repo_id
@@ -1479,7 +1641,7 @@ fn run_event(stdin_data: &str, env: &Env) -> i32 {
                 rename_note,
                 setup_note(&response, &root),
                 sync_note.clone(),
-                artifacts_note(&response, &root),
+                artifacts_note(&response, &root, &cfg.server, env),
                 ask_why_note(&response),
                 prefetch_note(&response, &session_id, env),
                 awareness,
@@ -1527,7 +1689,7 @@ fn run_event(stdin_data: &str, env: &Env) -> i32 {
             return emit(&sync_note);
         }
         // the map's answer to the name the agent just searched for
-        let sync_note = crate::prompt::join_notes(&[&sync_note, &crate::prompt::grep_companion(&command, &cfg, budget_left(), &session_id)]);
+        let sync_note = crate::prompt::join_notes(&[&sync_note, &crate::prompt::grep_companion(&command, &cfg, budget_left(), &session_id, env)]);
         // what the command DISPLAYED joins the map, the way a Read does:
         // one file as a single observation, several as a batch
         let shown: Vec<Value> = shell::shell_read_targets(&command, &cwd, &root)
@@ -1906,3 +2068,99 @@ mod redact_tests {
     }
 }
 
+
+/// Hand a "this command has started" note to a detached copy of this
+/// program (`started <cwd> <session> <command>`): the gate returns at once.
+pub fn spawn_started(cwd: &Path, session: &str, command: &str, transcript: &str) {
+    let command = command.trim();
+    if command.is_empty() {
+        return;
+    }
+    let Ok(exe) = std::env::current_exe() else { return };
+    let mut child = std::process::Command::new(exe);
+    child
+        .arg("started")
+        .arg(cwd)
+        .arg(session)
+        .arg(shown_command(command))
+        .arg(transcript)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        child.process_group(0);
+    }
+    let _ = child.spawn();
+}
+
+/// `started <cwd> <session> <command>`: tell Collide the agent is running
+/// this command now. Silent, short budget, nothing printed.
+pub fn started_command(args: &[String], env: &Env) -> i32 {
+    let (Some(cwd), Some(session), Some(command)) = (args.get(1), args.get(2), args.get(3)) else { return 0 };
+    let Some(root) = config::find_repo_root(&[Some(PathBuf::from(cwd))]) else { return 0 };
+    let cfg = config::config(Some(&root), env);
+    if !cfg.usable() {
+        return 0;
+    }
+    let mut payload = json!({"repo_id": cfg.repo_id, "session": session, "path": command, "action": "running", "started": true});
+    // the model, so a new repo's dashboard knows whose agent this is from
+    // its first command, not only once one finishes
+    if let Some(model) = args.get(4).map(|t| transcript::turn_meta(t)).and_then(|m| m.get("model").and_then(Value::as_str).map(str::to_string)).filter(|m| !m.is_empty()) {
+        payload["model"] = json!(model);
+    }
+    let branch = git::branch(&root);
+    if !branch.is_empty() {
+        payload["branch"] = json!(branch);
+    }
+    let _ = http::post(&cfg.server, "/presence", &cfg.token, &user_agent(), &payload, Duration::from_secs(5));
+    0
+}
+
+#[cfg(test)]
+mod index_choice_tests {
+    use super::*;
+
+    fn git(dir: &Path, args: &[&str]) {
+        let ok = std::process::Command::new("git").args(args).current_dir(dir)
+            .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().map(|s| s.success()).unwrap_or(false);
+        assert!(ok, "git {args:?}");
+    }
+
+    #[test]
+    fn the_bulk_index_skips_vendored_code_and_starts_a_huge_repo_from_its_recent_work() {
+        let dir = std::env::temp_dir().join(format!("collide-index-choice-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        git(&dir, &["init", "-q", "-b", "main"]);
+        git(&dir, &["config", "user.email", "t@t"]);
+        git(&dir, &["config", "user.name", "t"]);
+        let write = |rel: &str| {
+            let full = dir.join(rel);
+            std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+            std::fs::write(full, format!("def f():\n    return '{rel}'\n")).unwrap();
+        };
+        for rel in ["app/a.py", "app/b.py", "vendor/lib.py", "crm/packages/x.py", "crm/packages/y.py",
+                    "web/app.min.js", "proto/msg_pb2.py", "big/one.py", "big/two.py"] {
+            write(rel);
+        }
+        std::fs::write(dir.join(".gitattributes"), "big/** linguist-vendored\n").unwrap();
+        git(&dir, &["add", "-A"]);
+        git(&dir, &["commit", "-qm", "seed"]);
+        // the work since: app/b.py, then crm/packages/x.py
+        std::fs::write(dir.join("app/b.py"), "def g():\n    return 2\n").unwrap();
+        git(&dir, &["commit", "-qam", "b"]);
+        std::fs::write(dir.join("crm/packages/x.py"), "def h():\n    return 3\n").unwrap();
+        git(&dir, &["commit", "-qam", "x"]);
+
+        let env = Env::new();
+        let all = index_candidates(&dir, &env);
+        assert_eq!(all, vec!["app/a.py", "app/b.py", "crm/packages/x.py", "crm/packages/y.py"], "vendored, generated and linguist-vendored files are skipped");
+
+        let mut capped = Env::new();
+        capped.insert("COLLIDE_INDEX_MAX_FILES".into(), "2".into());
+        assert_eq!(index_candidates(&dir, &capped), vec!["app/b.py", "crm/packages/x.py"], "past the cap, the recent work first");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}

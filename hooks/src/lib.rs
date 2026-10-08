@@ -29,6 +29,7 @@ pub mod prompt;
 pub mod config;
 pub mod gate;
 pub mod land;
+pub mod listen;
 pub mod login;
 pub mod machine;
 pub mod mcpbridge;
@@ -39,10 +40,12 @@ pub mod apply;
 pub mod report;
 pub mod selfupdate;
 pub mod setup;
+pub mod sharedtree;
 pub mod shell;
 pub mod spool;
 pub mod supersede;
 pub mod transcript;
+pub mod wake;
 pub mod watch;
 
 use std::io::Read;
@@ -89,6 +92,18 @@ pub fn run(args: Vec<String>) -> ! {
                 println!("{rewritten}");
                 return 0;
             }
+            // a commit in a folder another live session works in takes only
+            // this session's files, never the other's uncommitted work
+            if let Some(reason) = sharedtree::commit_guard(&stdin_data, &env) {
+                let (stdout_text, stderr_text, code) = harness::render_decision(false, &reason);
+                if !stdout_text.is_empty() {
+                    println!("{stdout_text}");
+                }
+                if !stderr_text.is_empty() {
+                    eprint!("{stderr_text}");
+                }
+                return code;
+            }
             // a plain push becomes a landing: rebase, test and push in one step
             if let Some(rewritten) = land::rewrite(&stdin_data, &env) {
                 println!("{rewritten}");
@@ -106,6 +121,7 @@ pub fn run(args: Vec<String>) -> ! {
         }
         "report" => report::run(&stdin_data, &env),
         "index" => report::index_command(args.get(1).map(String::as_str).unwrap_or(""), &env),
+        "started" => report::started_command(&args, &env),
         "verify-tests" => verify::run(
             args.get(1).map(String::as_str).unwrap_or(""),
             args.get(2).map(String::as_str).unwrap_or(""),
@@ -122,6 +138,9 @@ pub fn run(args: Vec<String>) -> ! {
         "upgrade" => machine::upgrade(&args[1..], &env),
         "add" => machine::add(&env),
         "message" => machine::message(&args[1..], &env),
+        "ack" => listen::ack(&args[1..], &env),
+        "listen" => listen::run(&args[1..], &env),
+        "wake" => wake::command(&args[1..], &env),
         "mcp" => mcpbridge::run(&env),
         "agents-md" => machine::agents_md(&env),
         "status" => machine::status(&env),
@@ -166,6 +185,7 @@ pub fn run(args: Vec<String>) -> ! {
                 "collide: Collide for every repo on this machine.\n\n\
   collide status      what Collide did here, and whether it is running\n\
   collide message     tell the other agents in this repo something\n\
+  collide wake on     start an agent when a teammate messages you and none is running\n\
   collide login       link this machine to your Collide account\n\
   collide upgrade     bring in your team (Team, 14 days free)\n\
   collide add         share this repo with your team (on Team)\n\

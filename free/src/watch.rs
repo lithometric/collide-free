@@ -307,10 +307,87 @@ pub fn new_repo_question(store: &Store, workspace_id: &str, repo_id: &str, scope
         "error": format!(
             "{repo_id} is not in the Collide workspace {name}, so nothing from it is shared yet. Ask the user \
              whether to add it to {name}. If they say yes, run ~/.collide/bin/collide add in this repo (or, with \
-             Collide's MCP tools, call setup with repo_id \"{repo_id}\"). If they say no, carry on: Collide stays \
-             out of this repo."
+             Collide's MCP tools, call setup with repo_id \"{repo_id}\"). It is also waiting on their Collide \
+             dashboard, where they can add it to any of their workspaces or to a new one. If they say no, carry \
+             on: Collide stays out of this repo."
         ),
     }))
+}
+
+// --------------------------------------------------------- waiting repos
+
+const PENDING_BUCKET: &str = "pending_repo";
+
+/// An agent worked in a repo with a git remote that none of this person's
+/// workspaces has: it waits on their dashboard, where they pick the
+/// workspace to watch it from (or make a new one), instead of adding each
+/// repo again from GitHub. A folder with no remote is never shared, so it
+/// never waits.
+pub fn note_pending(store: &Store, uid: &str, repo_id: &str, workspace_id: &str) {
+    let repo_id = repo_id.trim();
+    let host = repo_id.split('/').next().unwrap_or("");
+    if uid.is_empty() || repo_id.matches('/').count() < 2 || !host.contains('.') {
+        return;
+    }
+    // a repo they said never to ask about does not come back when an agent
+    // works there again, and a tool's own checkout is never offered at all
+    if is_tool_checkout(repo_id)
+        || store.kv_get(PENDING_IGNORED_BUCKET, &format!("{uid}:{}", repo_key(repo_id))).is_some()
+    {
+        return;
+    }
+    let key = format!("{uid}:{}", repo_key(repo_id));
+    let now = crate::store::now();
+    let first = store.kv_get(PENDING_BUCKET, &key).and_then(|v| v.get("first_seen").and_then(Value::as_f64)).unwrap_or(now);
+    let _ = store.kv_put(PENDING_BUCKET, &key, &json!({
+        "repo_id": repo_id, "workspace": workspace_id, "first_seen": first, "last_seen": now,
+    }), now);
+}
+
+/// This person's waiting repos, newest first (a tool's checkout noted
+/// before the tool list existed is left out).
+pub fn pending_for(store: &Store, uid: &str) -> Vec<Value> {
+    let mut rows: Vec<Value> = store.kv_list(PENDING_BUCKET, &format!("{uid}:")).into_iter().map(|(_, v)| v)
+        .filter(|v| !is_tool_checkout(v.get("repo_id").and_then(Value::as_str).unwrap_or("")))
+        .collect();
+    rows.sort_by(|a, b| {
+        let at = |v: &Value| v.get("last_seen").and_then(Value::as_f64).unwrap_or(0.0);
+        at(b).partial_cmp(&at(a)).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    rows
+}
+
+const PENDING_IGNORED_BUCKET: &str = "pending_repo_ignored";
+
+/// Tools that install themselves as a git checkout of their own repo
+/// (Homebrew in /opt/homebrew, nvm in ~/.nvm, oh-my-zsh, pyenv, ...): an
+/// agent that runs one of them is "working" in that checkout, which is
+/// nobody's to add to a workspace.
+const TOOL_CHECKOUTS: &[&str] = &[
+    "homebrew/brew", "homebrew/homebrew-core", "homebrew/homebrew-cask", "homebrew/install",
+    "nvm-sh/nvm", "ohmyzsh/ohmyzsh", "robbyrussell/oh-my-zsh", "pyenv/pyenv", "pyenv/pyenv-virtualenv",
+    "rbenv/rbenv", "rbenv/ruby-build", "asdf-vm/asdf", "tmux-plugins/tpm", "junegunn/fzf",
+    "zsh-users/zsh-autosuggestions", "zsh-users/zsh-syntax-highlighting", "romkatv/powerlevel10k",
+    "rust-lang/rustup", "flutter/flutter", "volta-cli/volta", "jdx/mise", "spaceship-prompt/spaceship-prompt",
+];
+
+pub fn is_tool_checkout(repo_id: &str) -> bool {
+    let repo = repo_id.trim().to_lowercase();
+    let path = repo.split_once('/').map(|(_, p)| p).unwrap_or("");
+    let path = path.trim_end_matches(".git").trim_end_matches('/');
+    TOOL_CHECKOUTS.contains(&path) || path.starts_with("homebrew/")
+}
+
+/// "Never": the repo stops waiting and is never offered again.
+pub fn ignore_pending(store: &Store, uid: &str, repo_id: &str) {
+    let key = format!("{uid}:{}", repo_key(repo_id.trim()));
+    let _ = store.kv_put(PENDING_IGNORED_BUCKET, &key, &json!({"repo_id": repo_id.trim(), "ts": crate::store::now()}), crate::store::now());
+    clear_pending(store, uid, repo_id);
+}
+
+/// The repo was added (or dismissed): it stops waiting.
+pub fn clear_pending(store: &Store, uid: &str, repo_id: &str) {
+    let _ = store.kv_delete(PENDING_BUCKET, &format!("{uid}:{}", repo_key(repo_id.trim())));
 }
 
 // --------------------------------------------------------------- watching
@@ -727,7 +804,11 @@ this changes where fresh repos and defaults land",
 /// GitHub numeric id lets a rename (same id, new slug) be recognized and
 /// the old history aliased onto the new name — see [`register_watch`].
 pub fn api_watch(store: &Store, aliases: &Aliases, workspace_id: &str, auth: &AuthUser, body: &Value) -> Value {
-    register_watch(store, aliases, workspace_id, &text(body, "repo_id"), &text(body, "github_id"), &auth.uid)
+    let result = register_watch(store, aliases, workspace_id, &text(body, "repo_id"), &text(body, "github_id"), &auth.uid);
+    if crate::compat::truthy(result.get("ok")) {
+        clear_pending(store, &auth.uid, &text(body, "repo_id"));
+    }
+    result
 }
 
 /// `POST /api/workspaces/{workspace_id}/repos/move` handler logic. Same

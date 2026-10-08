@@ -17,11 +17,14 @@ use serde_json::{json, Value};
 use crate::check::state_path;
 use crate::config::{self, Env};
 use crate::http;
-use crate::report::{save_json, text, user_agent, BRIEF_BUDGET, BRIEF_TIMEOUT, TOTAL_BUDGET};
+use crate::report::{save_json, text, user_agent, BRIEF_TIMEOUT, TOTAL_BUDGET};
 
 const MAX_PROMPT_IDENTIFIERS: usize = 40;
 const MAX_GREP_SYMBOLS: usize = 5;
 const GREP_NOTE_CHARS: usize = 1500;
+/// A prompt briefing's budget, in characters (the session start's is
+/// report::BRIEF_BUDGET, 6000).
+const PROMPT_BRIEF_BUDGET: usize = 3500;
 const IDENT_STOP: [&str; 15] = [
     "e.g", "i.e", "etc", "vs", "python3", "python", "node", "npm", "npx", "git", "cd", "ls", "pytest", "cargo",
     "tests.check",
@@ -312,12 +315,27 @@ pub fn remember_briefed(session: &str, paths: &[Value], named: &[Value], text: &
         }
     }
     state.insert("covered_paths".into(), json!(listed));
-    if tokens > 0 {
-        let total = state.get("brief_tokens").and_then(Value::as_u64).unwrap_or(0);
-        state.insert("brief_tokens".into(), json!(total + tokens));
-        let injected = state.get("brief_injected").and_then(Value::as_u64).unwrap_or(0);
-        state.insert("brief_injected".into(), json!(injected + tokens));
+    // the text's cost is counted with everything else the hook printed
+    // (note_injected), so it is not counted twice here
+    let _ = tokens;
+    save_json(&path, &Value::Object(state));
+}
+
+/// What one hook event put into the context, in characters: it is carried on
+/// every later message, so it joins the cost the briefing outcome reports.
+/// The briefing used to be the only text counted; the grep companion, the
+/// deltas, notes and messages rode free.
+pub fn note_injected(session: &str, chars: usize, env: &Env) {
+    if session.is_empty() || chars == 0 {
+        return;
     }
+    let tokens = (chars as u64 + 3) / 4;
+    let path = state_path(session, env);
+    let mut state = config::load_json(&path).as_object().cloned().unwrap_or_default();
+    let total = state.get("brief_tokens").and_then(Value::as_u64).unwrap_or(0);
+    state.insert("brief_tokens".into(), json!(total + tokens));
+    let injected = state.get("brief_injected").and_then(Value::as_u64).unwrap_or(0);
+    state.insert("brief_injected".into(), json!(injected + tokens));
     save_json(&path, &Value::Object(state));
 }
 
@@ -521,7 +539,9 @@ pub fn run_user_prompt(hook_input: &Value, env: &Env) -> i32 {
         .and_then(Value::as_array)
         .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
         .unwrap_or_default();
-    let payload = json!({"repo_id": cfg.repo_id, "identifiers": identifiers, "exclude": exclude, "budget": BRIEF_BUDGET, "session": session, "prompt": meaning});
+    // a prompt's briefing rides every later message of the session: it gets
+    // a smaller budget than the session start's
+    let payload = json!({"repo_id": cfg.repo_id, "identifiers": identifiers, "exclude": exclude, "budget": PROMPT_BRIEF_BUDGET, "session": session, "prompt": meaning});
     let Ok(brief) = http::post(&cfg.server, "/brief", &cfg.token, &user_agent(), &payload, BRIEF_TIMEOUT) else { return 0 };
     let rendered = crate::harness::render_context("UserPromptSubmit", &text(&brief, "text"));
     if !rendered.is_empty() {
@@ -571,8 +591,13 @@ fn grep_identifiers(command: &str) -> Vec<String> {
 }
 
 /// The map's structured answer to the name the agent just searched for.
-pub fn grep_companion(command: &str, cfg: &config::Config, budget: Duration, session: &str) -> String {
-    let symbols = grep_identifiers(command);
+pub fn grep_companion(command: &str, cfg: &config::Config, budget: Duration, session: &str, env: &Env) -> String {
+    // a symbol already answered this session is in the context already: the
+    // same note repeated on every matching search was context paid for twice
+    let state_file = (!session.is_empty()).then(|| state_path(session, env));
+    let mut state = state_file.as_ref().map(|p| config::load_json(p).as_object().cloned().unwrap_or_default()).unwrap_or_default();
+    let told = strings(&state, "grep_told");
+    let symbols: Vec<String> = grep_identifiers(command).into_iter().filter(|s| !told.contains(s)).collect();
     if symbols.is_empty() || budget.is_zero() {
         return String::new();
     }
@@ -615,8 +640,31 @@ pub fn grep_companion(command: &str, cfg: &config::Config, budget: Duration, ses
         }
         lines.push(line);
     }
-    let joined = lines.join("\n");
-    if joined.chars().count() <= GREP_NOTE_CHARS { joined } else { joined.chars().take(GREP_NOTE_CHARS).collect() }
+    // whole lines within the cap, never one cut mid-sentence (the first line
+    // alone over the cap is cut, and says so)
+    let mut out: Vec<String> = Vec::new();
+    let mut shown: Vec<String> = Vec::new();
+    let mut used = 0usize;
+    for (name, line) in symbols.iter().filter(|n| facts.contains_key(n.as_str())).zip(lines) {
+        let size = line.chars().count() + usize::from(!out.is_empty());
+        if used + size > GREP_NOTE_CHARS {
+            if out.is_empty() {
+                out.push(format!("{}…", line.chars().take(GREP_NOTE_CHARS - 1).collect::<String>()));
+                shown.push(name.clone());
+            }
+            break;
+        }
+        used += size;
+        out.push(line);
+        shown.push(name.clone());
+    }
+    if let Some(path) = state_file {
+        let mut all = told;
+        all.extend(shown);
+        state.insert("grep_told".into(), json!(all));
+        save_json(&path, &Value::Object(state));
+    }
+    out.join("\n")
 }
 
 /// The read answered that another agent wrote this file moments ago.

@@ -19,7 +19,19 @@ pub const FETCH_TIMEOUT_S: u64 = 4;
 
 /// The repo's current branch, read straight from `.git/HEAD`.
 pub fn branch(root: &Path) -> String {
-    let Ok(head) = std::fs::read_to_string(root.join(".git").join("HEAD")) else {
+    // a linked worktree's .git is a file naming its own git dir
+    let dot_git = root.join(".git");
+    let git_dir = match std::fs::read_to_string(&dot_git) {
+        Ok(text) => match text.trim().strip_prefix("gitdir:") {
+            Some(dir) => {
+                let dir = Path::new(dir.trim());
+                if dir.is_absolute() { dir.to_path_buf() } else { root.join(dir) }
+            }
+            None => dot_git,
+        },
+        Err(_) => dot_git,
+    };
+    let Ok(head) = std::fs::read_to_string(git_dir.join("HEAD")) else {
         return String::new();
     };
     let head = head.trim();
@@ -386,4 +398,38 @@ mod ignore_tests {
         let _ = std::fs::remove_file(stamp_path(&clone, "sync"));
         let _ = std::fs::remove_dir_all(&base);
     }
+}
+
+fn git_lines(root: &Path, args: &[&str]) -> Vec<String> {
+    std::process::Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()
+        .filter(|out| out.status.success())
+        .map(|out| String::from_utf8_lossy(&out.stdout).lines().map(str::to_string).collect())
+        .unwrap_or_default()
+}
+
+/// The repo's local branch names, for the dashboard's branch switcher.
+pub fn local_branches(root: &Path) -> Vec<String> {
+    git_lines(root, &["for-each-ref", "--count=200", "--format=%(refname:short)", "refs/heads"])
+        .into_iter()
+        .map(|b| b.trim().chars().take(80).collect::<String>())
+        .filter(|b| !b.is_empty())
+        .collect()
+}
+
+/// The repo's worktrees by their folders' names (never the paths above
+/// them), for the dashboard's worktree switcher.
+pub fn worktree_names(root: &Path) -> Vec<String> {
+    git_lines(root, &["worktree", "list", "--porcelain"])
+        .into_iter()
+        .filter_map(|line| line.strip_prefix("worktree ").map(|p| p.trim().to_string()))
+        .filter_map(|p| Path::new(&p).file_name().and_then(|n| n.to_str()).map(|n| n.chars().take(120).collect::<String>()))
+        .take(100)
+        .collect()
 }

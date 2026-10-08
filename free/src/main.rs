@@ -23,6 +23,13 @@
 // still checks it.
 #![cfg_attr(not(feature = "cloud"), allow(dead_code))]
 
+// The cloud server rebuilds multi-GB maps of big repos across many threads;
+// glibc kept each rebuild's freed memory in per-thread arenas until the
+// process filled its 24 GB. mimalloc returns it.
+#[cfg(feature = "cloud")]
+#[global_allocator]
+static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 mod access;
 mod overlap;
 mod examples;
@@ -170,6 +177,8 @@ mod memory;
 mod merge;
 mod operations;
 mod presence;
+mod membudget;
+mod push;
 mod rename;
 mod repo;
 mod report;
@@ -436,6 +445,8 @@ pub(crate) fn authorize_bound(
         let mut body = open;
         if let Some(map) = body.as_object_mut() {
             if refused.get("new_repo").and_then(Value::as_bool) == Some(true) {
+                // and it waits on the person's dashboard for a workspace
+                crate::watch::note_pending(&app.store, &caller.uid, &caller.repo_id, &caller.workspace);
                 // the briefing tells it (brief_endpoint); every other route
                 // just declines, so none of them spends the telling
                 map.insert("new_repo".into(), json!(true));
@@ -474,6 +485,9 @@ async fn health(State(app): State<Arc<App>>) -> axum::response::Response {
         "store": app.store.write_stats(),
         "routes": crate::routestats::view(),
     });
+    let mut memory = crate::membudget::health();
+    memory["store_caches_mb"] = json!(app.store.cache_bytes() / (1024 * 1024));
+    body["memory"] = memory;
     if let Some(state) = crate::embed::health() {
         body["embeddings"] = state;
     }
@@ -523,6 +537,9 @@ async fn gate_endpoint(
     // is not observed, and never blocked: the gate allows and carries the line
     if let Err(refused) = bind_scope(&app, &caller) {
         let new_repo = refused.get("new_repo").and_then(Value::as_bool) == Some(true);
+        if new_repo {
+            crate::watch::note_pending(&app.store, &caller.uid, &caller.repo_id, &caller.workspace);
+        }
         let mut answer = json!({"allow": true, "reason": refused.get("error").cloned().unwrap_or(Value::Null)});
         answer[if new_repo { "new_repo" } else { "workspace_full" }] = json!(true);
         return Json(answer);
@@ -566,8 +583,18 @@ async fn presence_endpoint(
     }
     crate::sharing::note(&app.store, &caller.workspace, &caller.user_id, &text(&body, "machine"), crate::store::now());
     crate::freshness::note_checkout(&app.store, &caller.scope, &caller.user_id, &text(&body, "session"), &text(&body, "checkout"));
+    crate::freshness::note_worktree(&app.store, &caller.scope, &caller.user_id, &text(&body, "session"), &text(&body, "worktree"));
     let path = text(&body, "path");
     let action = text(&body, "action");
+    // a shell command has started: the agent runs it now (focus only; its
+    // end writes the rest)
+    if body.get("started").and_then(Value::as_bool) == Some(true) && !path.is_empty() && !text(&body, "repo_id").is_empty() {
+        if let Err(refused) = bind_scope(&app, &caller) {
+            return Json(refused);
+        }
+        presence::note_started(&app.store, &caller.scope, &caller.user_id, &text(&body, "session"), &path, &text(&body, "branch"), &text(&body, "model"));
+        return Json(json!({"ok": true}));
+    }
     // a turn's end: its closing message becomes the note on what it changed
     if action == "settled" && !text(&body, "repo_id").is_empty() {
         if let Err(refused) = bind_scope(&app, &caller) {
@@ -585,6 +612,7 @@ async fn presence_endpoint(
     if let Err(refused) = bind_scope(&app, &caller) {
         return Json(refused);
     }
+    let (visible, workspace) = (visible_for(&app, &caller), caller.workspace.clone());
     let (scope, user_id) = (caller.scope, caller.user_id);
     presence::note_worker(&app.store, &scope, &user_id, &text(&body, "session"), &text(&body, "worker"), &text(&body, "worker_type"));
     // the hook saw the repo's tests run in the agent's shell, and their verdict
@@ -618,9 +646,73 @@ async fn presence_endpoint(
     // without reading the answer: a message handed back on those would be
     // marked delivered and never seen, so it waits for a call that prints it
     if !discards_answer(&action, &body) {
-        local::attach_inbox(&app.store, &scope, &user_id, &text(&body, "session"), &mut answer);
+        attach_messages(&app, &scope, &workspace, &user_id, &text(&body, "session"), &visible, &mut answer);
     }
     Json(answer)
+}
+
+/// A prompt that names no code: at most this many modules matched by meaning,
+/// and only this close.
+const MEANING_ONLY_MODULES: usize = 2;
+const MEANING_ONLY_FLOOR: f64 = 0.55;
+
+/// The characters of teammates' messages one hook answer carries.
+const MESSAGE_BUDGET_CHARS: usize = 7000;
+
+/// Teammates' messages this session has not been shown, as one block, each
+/// told once a session (the briefing and every hook answer share the mark).
+/// An agent deep in one long task sends no prompt, so a message that waited
+/// for the next briefing reached it only after the work it was about.
+fn teammate_messages(
+    app: &App, scope: &str, workspace: &str, user_id: &str, session: &str, visible: &std::collections::BTreeSet<String>,
+) -> Option<String> {
+    if local::active() || session.is_empty() {
+        return None;
+    }
+    let inbox = crate::agenttools::inbox_ack(&app.store, scope, user_id, visible, &[]);
+    let inbox = access::own_messages_only(&app.store, workspace, user_id, inbox, &app.dashboard_url);
+    // whole messages, not their first 600 characters: an instruction past
+    // that cut was never seen. The block stays inside what a harness shows
+    // of one hook message (Codex: about 2,500 tokens); past that budget a
+    // message is cut and says where to read it whole
+    let mut told: Vec<String> = Vec::new();
+    let mut budget: usize = MESSAGE_BUDGET_CHARS;
+    for message in inbox.get("messages").and_then(Value::as_array).into_iter().flatten() {
+        let id = text(message, "id");
+        if !access::tell_once(&app.store, &format!("briefmsg:{session}:{id}"), access::TOLD_ONCE_TTL_S) {
+            continue;
+        }
+        // one mark with the MCP replies (advisory.rs): a message this person
+        // was shown whole in the last hour, by either path, is named, not
+        // repeated; and past the budget, messages are named only
+        let shown_key = format!("mcpmsg:{user_id}:{id}");
+        if app.store.eph_get(&shown_key).is_some() || budget < 200 {
+            told.push(format!("- [{id}] from {} (inbox_ack(repo_id) shows it whole)", text(message, "from")));
+            continue;
+        }
+        let _ = app.store.eph_set(&shown_key, &json!({"ts": crate::store::now()}), Some(3600.0));
+        let line = crate::agenttools::message_line_within(message, budget);
+        budget = budget.saturating_sub(line.chars().count());
+        told.push(line);
+    }
+    (!told.is_empty()).then(|| format!(
+        "Messages for you from teammates' agents — act on them, say so to the user, then inbox_ack(repo_id, ids=[...]):\n{}",
+        told.join("\n")))
+}
+
+/// A hook answer's waiting messages: this person's other sessions, then
+/// teammates', on the `inbox_note` every hook prints.
+fn attach_messages(
+    app: &App, scope: &str, workspace: &str, user_id: &str, session: &str,
+    visible: &std::collections::BTreeSet<String>, answer: &mut Value,
+) {
+    local::attach_inbox(&app.store, scope, user_id, session, answer);
+    if let Some(told) = teammate_messages(app, scope, workspace, user_id, session, visible) {
+        let own = text(answer, "inbox_note");
+        if let Some(map) = answer.as_object_mut() {
+            map.insert("inbox_note".into(), json!(if own.is_empty() { told } else { format!("{own}\n\n{told}") }));
+        }
+    }
 }
 
 /// A presence post whose answer no hook prints.
@@ -1001,6 +1093,17 @@ async fn brief_endpoint(
     }
     // only the hook asks for this: proof the hooks are live
     mark_hooks_seen(&app.store, &caller.scope, &caller.user_id);
+    // the repo's branches and worktrees as this person's checkout has them,
+    // for the dashboard's switchers (routes_observe::activity merges them)
+    let named = |key: &str| -> Vec<String> {
+        string_list(&body, key).into_iter().map(|v| v.trim().chars().take(120).collect::<String>())
+            .filter(|v| !v.is_empty()).take(200).collect()
+    };
+    let (branches, worktrees) = (named("branches"), named("worktrees"));
+    if !branches.is_empty() || !worktrees.is_empty() {
+        let _ = app.store.eph_set(&format!("repogit:{}:{}", caller.scope, caller.user_id),
+            &json!({"branches": branches, "worktrees": worktrees}), Some(7.0 * 86_400.0));
+    }
     // a prompt just arrived: the agent is running from this moment, before
     // its first tool call (a failed or backgrounded one never reports). The
     // prompt's text stays out of presence; it is the person's.
@@ -1038,7 +1141,17 @@ async fn brief_endpoint(
             while crate::embed::pending_for(&caller.scope) > 0 && waited.elapsed() < std::time::Duration::from_millis(2500) {
                 tokio::time::sleep(std::time::Duration::from_millis(50)).await;
             }
-            crate::embed::prompt_identifiers(&app.store, &caller.scope, &prompt, 6, Some((&caller.user_id, &session)))
+            // a prompt that names no code is matched by meaning alone: fewer
+            // modules, and only close ones (a vague ask was briefed six
+            // loosely related modules every turn)
+            let k = if names_code { 6 } else { MEANING_ONLY_MODULES };
+            let (meant, shown) = crate::embed::prompt_identifiers(&app.store, &caller.scope, &prompt, k, Some((&caller.user_id, &session)));
+            let best = shown.first().and_then(|h| h.get("score")).and_then(Value::as_f64).unwrap_or(0.0);
+            if names_code || best >= MEANING_ONLY_FLOOR {
+                (meant, shown)
+            } else {
+                (Vec::new(), Vec::new())
+            }
         } else {
             (Vec::new(), Vec::new())
         };
@@ -1112,7 +1225,18 @@ async fn brief_endpoint(
         if !reuse.is_empty() {
             answer["reuse"] = json!(reuse);
         }
-        for line in overlap.into_iter().chain(example_line).chain(reuse_line).chain(crate::brief::finish_line(&prompt).map(str::to_string)) {
+        // the overlap warning always goes in; the example, the helpers to
+        // reuse and the finish line only while the briefing fits its budget
+        // (they were added past it, every prompt)
+        let optional: Vec<String> = example_line.into_iter().chain(reuse_line).chain(crate::brief::finish_line(&prompt).map(str::to_string)).collect();
+        let fits = |answer: &Value, line: &str| budget == 0 || text(answer, "text").len() + line.len() + 1 <= budget;
+        let mut lines_in: Vec<String> = overlap.into_iter().collect();
+        for line in optional {
+            if fits(&answer, &format!("{}{}", lines_in.join("\n"), line)) {
+                lines_in.push(line);
+            }
+        }
+        for line in lines_in {
             if let Some(text) = answer.get("text").and_then(Value::as_str).filter(|t| !t.is_empty()) {
                 let mut lines: Vec<&str> = text.lines().collect();
                 let last = lines.pop().unwrap_or("");
@@ -1135,24 +1259,8 @@ async fn brief_endpoint(
     if let Some(note) = own.get("inbox_note").and_then(Value::as_str) {
         extra.push(note.to_string());
     }
-    let inbox = if local::active() {
-        json!({"messages": []})
-    } else {
-        let inbox = crate::agenttools::inbox_ack(&app.store, &caller.scope, &caller.user_id, &visible, &[]);
-        access::own_messages_only(&app.store, &caller.workspace, &caller.user_id, inbox, &app.dashboard_url)
-    };
-    let mut told: Vec<String> = Vec::new();
-    for message in inbox.get("messages").and_then(Value::as_array).into_iter().flatten() {
-        let id = text(message, "id");
-        if session.is_empty() || !access::tell_once(&app.store, &format!("briefmsg:{session}:{id}"), access::TOLD_ONCE_TTL_S) {
-            continue;
-        }
-        told.push(crate::agenttools::message_line(message));
-    }
-    if !told.is_empty() {
-        extra.push(format!(
-            "Messages for you from teammates' agents — act on them, then inbox_ack(repo_id, ids=[...]):\n{}",
-            told.join("\n")));
+    if let Some(told) = teammate_messages(&app, &caller.scope, &caller.workspace, &caller.user_id, &session, &visible) {
+        extra.push(told);
     }
     if !text(&answer, "text").is_empty() || identifiers.is_empty() {
         extra.extend(crate::claims::brief_lines(&app.store, &caller.scope, &caller.user_id, &session, crate::store::now()));
@@ -1374,6 +1482,7 @@ async fn observe_endpoint(
         // edit that follows expects the file to move under it
         let session = text(&body, "session");
         crate::freshness::note_checkout(&app.store, &caller.scope, &caller.user_id, &session, &text(&body, "checkout"));
+        crate::freshness::note_worktree(&app.store, &caller.scope, &caller.user_id, &session, &text(&body, "worktree"));
         if let Some((path, content, structure)) = files.first() {
             crate::deltas::touch(&app.store, &caller.scope, &session, &[path.clone()], crate::store::now());
             // what this copy holds now: the gate and the notes compare against it
@@ -1447,7 +1556,8 @@ async fn observe_endpoint(
             map.insert("presence".into(), presence);
         }
     }
-    local::attach_inbox(&app.store, &caller.scope, &caller.user_id, &text(&body, "session"), &mut response);
+    let visible = visible_for(&app, &caller);
+    attach_messages(&app, &caller.scope, &caller.workspace, &caller.user_id, &text(&body, "session"), &visible, &mut response);
     Json(response)
 }
 
@@ -1558,7 +1668,8 @@ async fn report_endpoint(
         },
         response,
     );
-    local::attach_inbox(&app.store, &scope, &user_id, &text(&body, "session"), &mut answer);
+    let visible = visible_for(&app, &caller);
+    attach_messages(&app, &scope, &caller.workspace, &user_id, &text(&body, "session"), &visible, &mut answer);
     Json(answer)
 }
 
@@ -1964,7 +2075,13 @@ async fn mcp_gate(
     if principal.as_ref().map(|p| p.workspace.is_empty()).unwrap_or(true) {
         let host = headers.get("host").and_then(|v| v.to_str().ok()).unwrap_or("");
         let root_host = at_root && oauth::mcp_at_root(&app.mcp_url, host);
-        let (status, parts, body) = oauth::unauthorized_mcp_response(&public_url_of(&app, &headers), root_host);
+        // the metadata of the host the client asked: a challenge on api.
+        // that named mcp.'s document described a different resource, and a
+        // strict client (Codex) refused it and never signed in
+        let configured = public_url_of(&app, &headers);
+        let scheme = configured.split("://").next().unwrap_or("https");
+        let asked = if host.trim().is_empty() { configured.clone() } else { format!("{scheme}://{}", host.trim()) };
+        let (status, parts, body) = oauth::unauthorized_mcp_response(&asked, root_host);
         let mut response = axum::response::Response::builder().status(status);
         for (name, value) in parts {
             response = response.header(name, value);
@@ -2201,7 +2318,7 @@ async fn machine_import_endpoint(
         Ok(caller) => caller,
         Err(refused) => return refused,
     };
-    Json(machines::import(&app.store, &app.aliases, &caller.workspace, &caller.email, &body))
+    Json(machines::import(&app.store, &app.aliases, &caller.workspace, &caller.uid, &caller.workspaces, &caller.email, &body))
 }
 
 async fn inbox_endpoint(
@@ -2232,6 +2349,74 @@ async fn inbox_endpoint(
     let inbox = agenttools::inbox_ack(
         &app.store, &caller.scope, &caller.user_id, &visible_for(&app, &caller), &ack);
     Json(access::own_messages_only(&app.store, &caller.workspace, &caller.user_id, inbox, &app.dashboard_url))
+}
+
+/// `POST /inbox/wait {repo_id?, session?, role, wait_s?, repos?}`: held until
+/// a message is there for the caller, or `wait_s` (at most 25) passes; then
+/// the messages this caller takes (`push::take`). `role: "session"` is an
+/// open session's listener, in `repo_id`; `role: "wake"` is the machine's
+/// wake watcher, with `repos` its checkouts (the ids as the machine spells
+/// them). Nothing is acked here: an agent acks what it handled, as before.
+async fn inbox_wait_endpoint(
+    State(app): State<Arc<App>>, headers: HeaderMap, Json(body): Json<Value>,
+) -> Json<Value> {
+    let open = json!({"ok": false, "messages": []});
+    let caller = match authorize_full(&app, &headers, &body, open) {
+        Ok(resolved) => resolved,
+        Err(response) => return response,
+    };
+    if local::active() {
+        // one machine: its agents hear each other on every hook call
+        return Json(json!({"ok": false, "reason": "local", "messages": []}));
+    }
+    let taker = push::Taker::parse(&text(&body, "role"));
+    let session = text(&body, "session");
+    let scope = if taker == push::Taker::Session && !caller.repo_id.trim().is_empty() {
+        caller.scope.clone()
+    } else {
+        String::new()
+    };
+    let checkouts: Vec<(String, String)> = body
+        .get("repos")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .filter(|id| !id.trim().is_empty())
+        .map(|id| (app.aliases.scope_for(&caller.workspace, id), id.to_string()))
+        .collect();
+    let wait = body.get("wait_s").and_then(Value::as_f64).unwrap_or(push::MAX_WAIT_S).clamp(0.0, push::MAX_WAIT_S);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs_f64(wait);
+    loop {
+        // armed before the look, so a message filed during it still wakes us
+        let arrived = push::arrivals().notified();
+        let visible = visible_for(&app, &caller);
+        let ask = push::Ask {
+            taker, workspace: &caller.workspace, user_id: &caller.user_id, scope: &scope,
+            session: &session, visible: &visible, checkouts: &checkouts,
+        };
+        let mut taken = if taker == push::Taker::Session {
+            push::take_for_session(&app.store, &scope, &caller.user_id, &session)
+        } else {
+            Vec::new()
+        };
+        taken.extend(push::take(&app.store, &ask, |candidates| {
+            let inbox = access::own_messages_only(
+                &app.store, &caller.workspace, &caller.user_id, json!({"messages": candidates}), &app.dashboard_url);
+            inbox.get("messages").and_then(Value::as_array).cloned().unwrap_or_default()
+        }));
+        let left = deadline.saturating_duration_since(std::time::Instant::now());
+        if !taken.is_empty() || left.is_zero() {
+            let senders: Vec<String> = taken.iter().map(|m| text(m, "from")).collect();
+            let names = access::display_names(&app.store, &caller.user_id, &senders);
+            for (message, name) in taken.iter_mut().zip(names) {
+                message["from_name"] = json!(name);
+            }
+            return Json(json!({"ok": true, "messages": taken}));
+        }
+        // a grace running out is a reason to look again too
+        let _ = tokio::time::timeout(left.min(std::time::Duration::from_secs(5)), arrived).await;
+    }
 }
 
 /// The dashboard's live feed: one scope's events as they happen. Refused
@@ -2636,6 +2821,7 @@ async fn serve_main() {
         .route("/differential-check", post(differential_check_endpoint))
         .route("/graph", post(graph_endpoint))
         .route("/inbox", post(inbox_endpoint))
+        .route("/inbox/wait", post(inbox_wait_endpoint))
         .route("/message", post(message_endpoint))
         .route("/local/summary", post(local_summary_endpoint))
         .route("/local/export", post(local_export_endpoint))
@@ -2703,6 +2889,8 @@ async fn serve_main() {
     if crate::engine::Engine::start(app.store.clone()).is_some() {
         tracing::info!("engine: started; /health reports ready once caught up");
     }
+    // past the soft memory limit every cache is shed and the founders told
+    crate::membudget::start_watchdog(app.store.clone());
     // repos idle for half an hour leave memory: their graph records, index,
     // snapshot and vectors are rebuilt on next use. COLLIDE_CACHE_IDLE_S tunes it.
     std::thread::Builder::new()

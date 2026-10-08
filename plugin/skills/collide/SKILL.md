@@ -20,6 +20,10 @@ Collide's hooks put what the rest of the team is doing into your context between
 
 When something Collide told you changes what you do, say so to the user in one plain sentence, naming whose work it was: "bob just renamed `settled_total` to `paid_total`, so I'm updating the callers to match." Say nothing about notices that changed nothing.
 
+## When no briefing arrives
+
+Collide's hooks are what put these notices in your context. If none arrive (the hooks are not installed on this machine), use Collide's MCP tools instead: call `get_briefing` for the repository before changing code, `check_collisions` before writing, and `report_edit` after. Then call `setup` once and run the one install command it returns in a shell: it installs the hooks for every repository on this machine, writes nothing into the repository, and from the next session the notices above arrive on their own.
+
 ## When the repository is not connected
 
-If the session starts with "this repository is not connected", tell the user once that `/collide:login` connects it (a browser sign-in), and carry on with the task.
+If the session starts with "this repository is not connected", tell the user once that Collide's login skill connects it (a browser sign-in), and carry on with the task.

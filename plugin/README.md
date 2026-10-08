@@ -1,20 +1,27 @@
-# Collide for Claude Code
+# Collide MCP for Claude Code: multiple Claude Code agents, one repo, no conflicts
 
-Run several Claude Code agents on one repository, alone or with a team, without them tripping over each other.
+[![License: MIT](https://img.shields.io/badge/license-MIT-34d399.svg)](LICENSE)
+[![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-111.svg)](#install)
+[![MCP](https://img.shields.io/badge/MCP-server-34d399.svg)](https://collidemcp.com/docs)
+
+**Collide is the coordination layer for multiplayer coding agents: it keeps Claude Code, Codex and Cursor agents, on one machine or across a team's machines, from overwriting each other on one codebase, and hands each agent what the others already learned.**
+
+This is Collide's open-source Claude Code plugin: the hooks, skill and commands. Run several Claude Code agents on one repository, alone or with a team, without them tripping over each other.
 
 - **Each agent starts in the right place.** When you type a prompt, the agent is handed the exact functions it is about: their signatures, who calls them, and what changed recently. Less searching.
 - **Agents hear about each other's work.** When a teammate's agent renames a function yours uses, or starts writing the module your task needs, your agent is told on its next step.
 - **Writes that would clash are stopped.** An edit against a function a teammate just changed is held until your agent has their version.
 - **Pushing takes one step.** `git push` is rebased onto your teammates' new commits, tested and pushed for the agent, instead of the reject-pull-retest loop.
+- **Notes stay with the code.** What an agent said about a change it finished is kept on the functions it touched and handed to the next agent there.
 
-In our team benchmark (12 agents, 4 people, one repository), agents with Collide used 47% fewer tokens than the same agents without it, with every task correct. [The study](https://collidemcp.com/benchmarks/study-3-teams-easy-to-hard).
+In our benchmark (12 agents at once on one repository, hard tasks), agents with Collide used 53% fewer tokens than the same agents without it. [The study](https://collidemcp.com/benchmarks/study-5-twelve-agents-53-percent).
 
 ## Install
 
 In Claude Code, send these as two separate messages:
 
 ```
-/plugin marketplace add lithometric/collide-plugin
+/plugin marketplace add lithometric/collidemcp
 ```
 ```
 /plugin install collide@collide
@@ -29,7 +36,7 @@ That is all. The next session sets Collide up for every repository on this machi
 - `hooks/hooks.json`: the Claude Code hooks (session start, prompt, every read, edit and command, failed calls, stop), all run through `bin/collide`.
 - `bin/collide`: the launcher. It fetches the pinned `collide-hook` binary once and runs it; it fails open.
 - `skills/collide`: teaches your agent how to read what Collide tells it (briefings, Δ lines, blocked writes, landings) and to say when a teammate's work changed its plan.
-- `commands/`: `/collide:login` and `/collide:status`.
+- `skills/login` and `skills/status`: sign the machine in and see what Collide is doing (`/collide:login` and `/collide:status` in Claude Code).
 
 The MCP server is optional. To give your agent Collide's tools as well (look up any symbol, blast radius, team memory), add it once: `claude mcp add --transport http collide https://mcp.collidemcp.com`.
 
@@ -56,3 +63,18 @@ Free is everything on one machine: unlimited agents and repositories, no account
 ## License
 
 This plugin (the hooks, the launcher and the commands in this repository) is MIT licensed. The `collide-hook` binary it downloads and the Collide service are not open source; they are free to use under Collide's terms.
+
+## Frequently asked questions
+
+**How do I run multiple Claude Code agents on the same repository?**
+Install this plugin (two messages, above) and start your agents as usual. They see each other's changes as they work, clashing writes are held, and pushes land in one step.
+
+**Do I need the MCP server too?**
+No. The hooks do the work with no extra model calls. The MCP server (`claude mcp add --transport http collide https://mcp.collidemcp.com`) adds tools an agent can call on purpose.
+
+**Does it work with Codex and Cursor?**
+This plugin is for Claude Code. For Codex and Cursor too, install Collide for the whole machine: `curl -fsSL https://collidemcp.com/install.sh | sh` or `npx collidemcp` ([collidemcp](https://github.com/lithometric/collidemcp)).
+
+---
+
+If Collide saved your agents a merge conflict, a **star** helps other developers running parallel Claude Code agents find it. Website: [collidemcp.com](https://collidemcp.com) · Free version and source: [lithometric/collidemcp](https://github.com/lithometric/collidemcp)

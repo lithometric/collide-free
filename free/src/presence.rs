@@ -185,7 +185,60 @@ pub fn note_last_action(
     record.insert("branch".into(), json!(branch));
     record.insert("note".into(), json!(clip(note, MAX_NOTE)));
     record.insert("via".into(), via_view(via));
-    let _ = store.eph_set(&last_action_key(scope, user, session), &Value::Object(record), Some(LAST_ACTION_TTL_S));
+    // the line it replaces joins the agent's recent history (the dashboard
+    // shows it above the current bubble), unless it said the same thing
+    let key = last_action_key(scope, user, session);
+    if let Some(previous) = store.eph_get(&key) {
+        let same = previous.get("kind") == record.get("kind") && previous.get("path") == record.get("path");
+        if !same {
+            push_history(store, scope, user, session, &previous);
+        }
+    }
+    let _ = store.eph_set(&key, &Value::Object(record), Some(LAST_ACTION_TTL_S));
+}
+
+/// How long a "running" that has started may stand with nothing after it:
+/// long enough for a slow test suite or build, not forever for a killed one.
+const STARTED_TTL_S: f64 = 1800.0;
+
+/// A shell command has STARTED (PreToolUse; the hook hands it off so the
+/// command is not held): the agent is running it now. Only the focus marker
+/// moves, flagged `started`; the command's end (PostToolUse) overwrites it
+/// and writes the last action, which is when the dashboard says "ran".
+pub fn note_started(store: &Store, scope: &str, user: &str, session: &str, command: &str, branch: &str, model: &str) {
+    let mut marker = identity(scope, user, session);
+    if !model.is_empty() {
+        marker.insert("model".into(), json!(model));
+    }
+    marker.insert("path".into(), json!(clip(command, MAX_PATH)));
+    marker.insert("action".into(), json!("running"));
+    marker.insert("started".into(), json!(true));
+    marker.insert("branch".into(), json!(branch));
+    marker.insert("ts".into(), json!(now()));
+    let _ = store.eph_set(&focus_key(scope, user, session), &Value::Object(marker), Some(STARTED_TTL_S));
+}
+
+/// How many earlier lines an agent keeps.
+const HISTORY_LEN: usize = 30;
+
+pub fn history_key(scope: &str, user: &str, session: &str) -> String {
+    format!("lasthist:{}:{}", split_scope(scope).0, agent_id(user, session))
+}
+
+fn push_history(store: &Store, scope: &str, user: &str, session: &str, previous: &Value) {
+    let key = history_key(scope, user, session);
+    let mut items: Vec<Value> = store.eph_get(&key).and_then(|v| v.get("items").and_then(Value::as_array).cloned()).unwrap_or_default();
+    let pick = |k: &str| previous.get(k).cloned().unwrap_or(Value::Null);
+    items.insert(0, json!({"kind": pick("kind"), "path": pick("path"), "note": pick("note"), "ts": pick("ts")}));
+    items.truncate(HISTORY_LEN);
+    let _ = store.eph_set(&key, &json!({"items": items}), Some(LAST_ACTION_TTL_S));
+}
+
+/// The agent's earlier lines, newest first (the current one not among them).
+pub fn history(store: &Store, scope: &str, user: &str, session: &str) -> Vec<Value> {
+    store.eph_get(&history_key(scope, user, session))
+        .and_then(|v| v.get("items").and_then(Value::as_array).cloned())
+        .unwrap_or_default()
 }
 
 /// Writing supersedes reading: `report_edit` calls this so the Now line stops

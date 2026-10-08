@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "collide",
-      "source": "./",
+      "source": "./plugin",
       "description": "Several coding agents on one repo, without the collisions.",
       "version": "0.2.0"
     }

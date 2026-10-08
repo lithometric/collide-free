@@ -25,7 +25,7 @@
 
 use std::path::Path;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
 use rusqlite::{params, Connection, OptionalExtension};
@@ -218,8 +218,17 @@ const SHARDS: usize = 32;
 /// a membership, a plan), not for graph records.
 const KV_CACHE_MAX_BYTES: usize = 8 * 1024;
 const KV_CACHE_PER_SHARD: usize = 4096;
+/// What the row cache may hold, in bytes of stored JSON, per shard: a cap
+/// by count alone let 131k rows of up to 8 KB each (every map row of a big
+/// repo, a second copy of it) stay resident.
+const KV_CACHE_SHARD_BYTES: usize = 8 * 1024 * 1024;
 const SCAN_CACHE_MAX_ROWS: usize = 256;
 const SCAN_CACHE_ENTRIES: usize = 16_384;
+/// What cached prefix scans may hold in all, roughly.
+const SCAN_CACHE_BYTES: usize = 128 * 1024 * 1024;
+/// Buckets read in bulk and kept by the graph's own cache (codegraph.rs):
+/// caching their rows here too was a second copy of every map.
+const UNCACHED_BUCKETS: [&str; 2] = ["graph", "graphrev"];
 
 type EphShard = RwLock<BTreeMap<String, (Value, Option<f64>)>>;
 type KvShard = RwLock<HashMap<(String, String), Option<Value>>>;
@@ -231,6 +240,10 @@ struct Mem {
     /// for a delete. Coalesced, so a marker set fifty times is written once.
     dirty: Mutex<HashMap<String, Option<(String, Option<f64>)>>>,
     kv: Vec<KvShard>,
+    /// Bytes each row-cache shard holds (an over-count after removals,
+    /// which only clears a shard sooner).
+    kv_shard_bytes: Vec<AtomicU64>,
+    scan_bytes: AtomicU64,
     /// Write versions: per bucket, and per (bucket, key head), where the
     /// head is the key through its second ':' — a scope. A cached scan or
     /// stat is current while the version it was filled under still stands.
@@ -264,7 +277,7 @@ pub const TREE_FLUSH_S: f64 = 2.0;
 pub const TAIL_WINDOW_S: f64 = 3600.0;
 /// The most rows one repo keeps in memory; past it the oldest go and the
 /// window starts later.
-const TAIL_MAX_ROWS: usize = 200_000;
+const TAIL_MAX_ROWS: usize = 50_000;
 
 /// One repo's recent rows. Every row with `ts >= from_ts` is here: the
 /// rows loaded when the tail was made, plus every row appended since (the
@@ -341,6 +354,8 @@ impl Mem {
             eph,
             dirty: Mutex::new(HashMap::new()),
             kv: (0..SHARDS).map(|_| RwLock::new(HashMap::new())).collect(),
+            kv_shard_bytes: (0..SHARDS).map(|_| AtomicU64::new(0)).collect(),
+            scan_bytes: AtomicU64::new(0),
             versions: RwLock::new(HashMap::new()),
             scans: Mutex::new(HashMap::new()),
             stats: Mutex::new(HashMap::new()),
@@ -396,15 +411,38 @@ impl Mem {
     /// `seen` was taken. The check runs under the shard lock that
     /// `touched` removes under, and `touched` moves the version first, so a
     /// row read before a write can never be cached after it.
-    fn kv_remember(&self, bucket: &str, key: &str, value: Option<Value>, seen: u64) {
-        let mut shard = self.kv[shard_of(key)].write().unwrap_or_else(|e| e.into_inner());
+    fn kv_remember(&self, bucket: &str, key: &str, value: Option<Value>, seen: u64, bytes: usize) {
+        if UNCACHED_BUCKETS.contains(&bucket) {
+            return;
+        }
+        let at = shard_of(key);
+        let mut shard = self.kv[at].write().unwrap_or_else(|e| e.into_inner());
         if self.version_for(bucket, key) != seen {
             return;
         }
-        if shard.len() >= KV_CACHE_PER_SHARD {
+        let held = &self.kv_shard_bytes[at];
+        if shard.len() >= KV_CACHE_PER_SHARD || held.load(Ordering::Relaxed) as usize + bytes > KV_CACHE_SHARD_BYTES {
             shard.clear();
+            held.store(0, Ordering::Relaxed);
         }
+        held.fetch_add((bytes + key.len() + 96) as u64, Ordering::Relaxed);
         shard.insert((bucket.to_string(), key.to_string()), value);
+    }
+
+    /// Everything a cache holds that the disk also has: the memory
+    /// watchdog's first resort.
+    fn shed(&self) {
+        for (shard, held) in self.kv.iter().zip(&self.kv_shard_bytes) {
+            shard.write().unwrap_or_else(|e| e.into_inner()).clear();
+            held.store(0, Ordering::Relaxed);
+        }
+        self.scans.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        self.scan_bytes.store(0, Ordering::Relaxed);
+        self.stats.lock().unwrap_or_else(|e| e.into_inner()).clear();
+    }
+
+    fn cache_bytes(&self) -> u64 {
+        self.kv_shard_bytes.iter().map(|b| b.load(Ordering::Relaxed)).sum::<u64>() + self.scan_bytes.load(Ordering::Relaxed)
     }
 }
 
@@ -1107,8 +1145,9 @@ impl Store {
         drop(conn);
         let value: Option<Value> = raw.as_deref().and_then(|raw| serde_json::from_str(raw).ok());
         if let (Some(mem), Some(seen)) = (&self.mem, seen) {
-            if raw.as_ref().map(|r| r.len() <= KV_CACHE_MAX_BYTES).unwrap_or(true) {
-                mem.kv_remember(bucket, key, value.clone(), seen);
+            let bytes = raw.as_ref().map(String::len).unwrap_or(0);
+            if bytes <= KV_CACHE_MAX_BYTES {
+                mem.kv_remember(bucket, key, value.clone(), seen, bytes);
             }
         }
         value
@@ -1308,14 +1347,63 @@ impl Store {
         }
         let rows = self.kv_list_disk(bucket, prefix);
         // small scans only: a membership list, an inbox; never a whole graph
-        if rows.len() <= SCAN_CACHE_MAX_ROWS {
+        if rows.len() <= SCAN_CACHE_MAX_ROWS && !UNCACHED_BUCKETS.contains(&bucket) {
+            let bytes: usize = rows.iter().map(|(k, v)| 48 + k.len() + crate::codegraph::value_bytes(v)).sum();
             let mut scans = mem.scans.lock().unwrap_or_else(|e| e.into_inner());
-            if scans.len() >= SCAN_CACHE_ENTRIES {
+            if scans.len() >= SCAN_CACHE_ENTRIES || mem.scan_bytes.load(Ordering::Relaxed) as usize + bytes > SCAN_CACHE_BYTES {
                 scans.clear();
+                mem.scan_bytes.store(0, Ordering::Relaxed);
             }
+            mem.scan_bytes.fetch_add(bytes as u64, Ordering::Relaxed);
             scans.insert(id, (seen, std::sync::Arc::new(rows.clone())));
         }
         rows
+    }
+
+    /// Every row under a prefix, handed to `f` one at a time as it is read:
+    /// a whole bucket of a big repo is never held at once.
+    pub fn kv_for_each(&self, bucket: &str, prefix: &str, mut f: impl FnMut(String, Value)) {
+        let conn = self.reader();
+        let Ok(mut statement) = conn.prepare(
+            "SELECT key, value FROM app_kv WHERE bucket = ? AND key GLOB ?2 ORDER BY key",
+        ) else {
+            return;
+        };
+        let Ok(mut rows) = statement.query(params![bucket, glob_prefix(prefix)]) else { return };
+        while let Ok(Some(row)) = rows.next() {
+            let (Ok(key), Ok(raw)) = (row.get::<_, String>(0), row.get::<_, String>(1)) else { continue };
+            if let Ok(value) = serde_json::from_str(&raw) {
+                f(key, value);
+            }
+        }
+    }
+
+    /// The `limit` rows under a prefix written most recently, newest first.
+    pub fn kv_list_recent(&self, bucket: &str, prefix: &str, limit: usize) -> Vec<(String, Value)> {
+        let conn = self.reader();
+        let Ok(mut statement) = conn.prepare(
+            "SELECT key, value FROM app_kv WHERE bucket = ? AND key GLOB ?2 ORDER BY updated DESC LIMIT ?3",
+        ) else {
+            return Vec::new();
+        };
+        let rows = statement.query_map(params![bucket, glob_prefix(prefix), limit as i64], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        });
+        let Ok(rows) = rows else { return Vec::new() };
+        rows.flatten().filter_map(|(key, value)| serde_json::from_str(&value).ok().map(|v| (key, v))).collect()
+    }
+
+    /// Drop the row and scan caches (the memory watchdog); the disk has them.
+    pub fn shed_caches(&self) {
+        if let Some(mem) = &self.mem {
+            mem.shed();
+            mem.tails.write().unwrap_or_else(|e| e.into_inner()).clear();
+        }
+    }
+
+    /// Roughly what the row and scan caches hold, in bytes.
+    pub fn cache_bytes(&self) -> u64 {
+        self.mem.as_ref().map(|m| m.cache_bytes()).unwrap_or(0)
     }
 
     fn kv_list_disk(&self, bucket: &str, prefix: &str) -> Vec<(String, Value)> {

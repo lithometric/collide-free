@@ -142,6 +142,35 @@ pub fn spawn_if_due(server: &str, env: &Env) {
     let _ = command.spawn();
 }
 
+/// The server said this machine's hooks are behind: update now, not at the
+/// next session start hours later. At most one attempt every ten minutes, so
+/// a burst of edits starts one update. Returns whether this binary updates
+/// itself (the machine install): when it does, nobody needs to be told.
+pub fn update_now(server: &str, env: &Env) -> bool {
+    let Ok(exe) = std::env::current_exe() else { return false };
+    if config::get(env, "COLLIDE_NATIVE_INSTALL").trim() == "0" || target().is_none() || !managed(&exe) {
+        return false;
+    }
+    let last = config::load_json(&stamp_path(env)).get("ts").and_then(Value::as_u64).unwrap_or(0);
+    if !server.is_empty() && now_s().saturating_sub(last) >= 600 {
+        crate::report::save_json(&stamp_path(env), &json!({"ts": now_s(), "from": HOOK_VERSION}));
+        let mut command = std::process::Command::new(&exe);
+        command
+            .arg("self-update")
+            .arg(server)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            command.process_group(0);
+        }
+        let _ = command.spawn();
+    }
+    true
+}
+
 /// The version a binary reports (`collide-hook X (hook artifacts vN)`).
 fn reported_version(exe: &Path) -> u32 {
     let Ok(output) = std::process::Command::new(exe).arg("--version").output() else { return 0 };

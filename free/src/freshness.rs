@@ -61,6 +61,31 @@ pub fn note_checkout(store: &Store, scope: &str, user: &str, session: &str, chec
     }
 }
 
+fn worktree_key(scope: &str, user: &str, session: &str) -> String {
+    format!("worktree:{scope}:{user}:{session}")
+}
+
+/// The working copy's folder name (`SEOENGINE`, `SEOENGINE-auth`), as the
+/// hook names it beside the checkout: what the dashboard filters agents by.
+pub fn note_worktree(store: &Store, scope: &str, user: &str, session: &str, worktree: &str) {
+    let worktree: String = worktree.trim().chars().take(120).collect();
+    if session.is_empty() || worktree.is_empty() {
+        return;
+    }
+    let key = worktree_key(scope, user, session);
+    if store.eph_get(&key).and_then(|v| v.as_str().map(str::to_string)).as_deref() != Some(worktree.as_str()) {
+        let _ = store.eph_set(&key, &json!(worktree), Some(TTL_S));
+    }
+}
+
+/// The folder name `note_worktree` kept for a session, "" when none.
+pub fn worktree_of(store: &Store, scope: &str, user: &str, session: &str) -> String {
+    if session.is_empty() {
+        return String::new();
+    }
+    store.eph_get(&worktree_key(scope, user, session)).and_then(|v| v.as_str().map(str::to_string)).unwrap_or_default()
+}
+
 fn same_checkout(store: &Store, scope: &str, a: (&str, &str), b: (&str, &str)) -> bool {
     let get = |(u, s): (&str, &str)| store.eph_get(&checkout_key(scope, u, s)).and_then(|v| v.as_str().map(str::to_string));
     matches!((get(a), get(b)), (Some(x), Some(y)) if x == y)

@@ -207,22 +207,42 @@ fn apply_messages_pending(store: &Store, cfg: &Advisory, caller: &Caller, respon
     if messages.is_empty() {
         return;
     }
-    let pending: Vec<Value> = messages
-        .iter()
-        .map(|m| {
-            let mut row = json!({"id": m["id"], "from": m["from"], "message": m["message"], "ts": m["ts"]});
-            // an anchored message says what became of its code since
-            for key in ["anchor", "stale", "outcomes"] {
-                if let Some(value) = m.get(key) {
-                    row[key] = value.clone();
-                }
+    // in full at most once an hour per person and message: an unacked
+    // message rode every reply whole, thousands of tokens a call for a
+    // long one. Between, only its id and sender, and where to read it.
+    let mut pending: Vec<Value> = Vec::new();
+    let mut waiting: Vec<Value> = Vec::new();
+    for m in &messages {
+        let told = format!("mcpmsg:{}:{}", caller.user_id, m.get("id").and_then(Value::as_str).unwrap_or(""));
+        if store.eph_get(&told).is_some() {
+            waiting.push(json!({"id": m["id"], "from": m["from"], "ts": m["ts"]}));
+            continue;
+        }
+        let _ = store.eph_set(&told, &json!({"ts": crate::store::now()}), Some(MESSAGE_RETELL_S));
+        let mut row = json!({"id": m["id"], "from": m["from"], "message": m["message"], "ts": m["ts"]});
+        // an anchored message says what became of its code since
+        for key in ["anchor", "stale", "outcomes"] {
+            if let Some(value) = m.get(key) {
+                row[key] = value.clone();
             }
-            row
-        })
-        .collect();
-    insert(response, "messages_pending", Value::Array(pending));
-    insert(response, "messages_hint", json!(MESSAGES_HINT));
+        }
+        pending.push(row);
+    }
+    if !pending.is_empty() {
+        insert(response, "messages_pending", Value::Array(pending));
+    }
+    if !waiting.is_empty() {
+        insert(response, "messages_waiting", Value::Array(waiting));
+    }
+    insert(response, "messages_hint", json!(if response.get("messages_pending").is_some() { MESSAGES_HINT } else { WAITING_HINT }));
 }
+
+/// How often an unacked message is handed over whole again.
+const MESSAGE_RETELL_S: f64 = 3600.0;
+
+/// The line when every waiting message was already shown in full.
+pub const WAITING_HINT: &str = "Messages from teammates you were already shown are still waiting: act on them, \
+then call inbox_ack(repo_id, ids=[...]); inbox_ack(repo_id, ids=[]) shows them again in full.";
 
 /// Python's `workspace_hint`: once-per-repo nudge that this repo is being
 /// reported but NO workspace is watching it — no `ghrepo` binding in the

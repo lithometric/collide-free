@@ -62,6 +62,15 @@ fn truncate_chars(value: &str, n: usize) -> String {
 pub fn send_agent_message(
     store: &Store, scope: &str, from_user: &str, to: &str, message: &str, agent: &str,
 ) -> Value {
+    send_agent_message_as(store, scope, from_user, to, message, agent, false)
+}
+
+/// `send_agent_message`, saying whether it is one copy of a note to every
+/// agent at work in the repo (`broadcast`): news for whoever is working,
+/// carried by their next hook, never a reason to start an idle session.
+pub fn send_agent_message_as(
+    store: &Store, scope: &str, from_user: &str, to: &str, message: &str, agent: &str, broadcast: bool,
+) -> Value {
     let to = to.trim();
     let message = message.trim();
     if message.is_empty() || to.is_empty() {
@@ -70,10 +79,14 @@ pub fn send_agent_message(
     let id = crate::compat::new_id();
     let ts = now();
     let truncated = truncate_chars(message, 4000);
-    let record = json!({
+    let mut record = json!({
         "id": id, "to": to, "from": from_user, "message": truncated, "agent": agent, "ts": ts,
     });
+    if broadcast {
+        record["broadcast"] = json!(true);
+    }
     let _ = store.kv_put("inbox", &format!("{scope}:{to}:{id}"), &record, ts);
+    crate::push::arrived();
     let _ = store.ledger_append(scope, "agent_message", &json!({
         "to": to, "from": from_user, "id": id, "chars": truncated.chars().count(),
     }), ts);
@@ -186,6 +199,7 @@ callers); name a teammate in `to`")});
         }), ts);
         ids.push(id);
     }
+    crate::push::arrived();
     let mut out = json!({"ok": true, "message_id": ids[0], "delivered_to": allowed, "anchor": label});
     if allowed.len() < recipients.len() {
         out["withheld"] = json!(recipients.len() - allowed.len());
@@ -197,6 +211,12 @@ callers); name a teammate in `to`")});
 /// One message as a briefing line: who, what it is about and what became
 /// of that code since, then the text.
 pub fn message_line(message: &Value) -> String {
+    message_line_within(message, 600)
+}
+
+/// `message_line` with the message text cut at `limit` characters, saying
+/// how much was left out and where to read it whole.
+pub fn message_line_within(message: &Value, limit: usize) -> String {
     let mut about = String::new();
     let anchor = text(message, "anchor");
     if !anchor.is_empty() {
@@ -214,7 +234,14 @@ pub fn message_line(message: &Value) -> String {
         };
         about = format!(" about {anchor} ({moved}{tests})");
     }
-    format!("- [{}] from {}{about}: {}", text(message, "id"), text(message, "from"), truncate_chars(&text(message, "message"), 600))
+    let said = text(message, "message");
+    let total = said.chars().count();
+    let rest = if total > limit {
+        format!(" [{} more characters: inbox_ack(repo_id) returns the whole message]", total - limit)
+    } else {
+        String::new()
+    };
+    format!("- [{}] from {}{about}: {}{rest}", text(message, "id"), text(message, "from"), truncate_chars(&said, limit))
 }
 
 /// What happened to the anchored code since the message was sent: whether
